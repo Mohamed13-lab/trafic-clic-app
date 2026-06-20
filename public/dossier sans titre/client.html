@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Trafic Clic - Client</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(145deg, #fbc2eb 0%, #a6c1ee 100%);
+    position: relative;
+    overflow-x: hidden;
+  }
+  .blob1, .blob2, .blob3 {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .blob1 { width: 500px; height: 500px; background: #f472b6; top: -150px; left: -100px; }
+  .blob2 { width: 400px; height: 400px; background: #60a5fa; bottom: -100px; right: -50px; }
+  .blob3 { width: 300px; height: 300px; background: #fbbf24; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+  .container { max-width: 1400px; margin: auto; display: flex; gap: 30px; flex-wrap: wrap; position: relative; z-index: 1; }
+  .main-content { flex: 1; min-width: 300px; background: rgba(255,255,255,0.75); backdrop-filter: blur(12px); border-radius: 30px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.3); }
+  .sidebar-pub { width: 320px; background: rgba(255,255,255,0.5); backdrop-filter: blur(8px); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 20px; border: 1px solid rgba(255,255,255,0.2); min-height: 300px; }
+  .pub-item { width: 100%; min-height: 120px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.3); color: #4b5563; font-weight: 500; }
+  .pub-item img { max-width: 100%; border-radius: 12px; }
+  .pub-haut { background: rgba(255,255,255,0.3); padding: 20px; min-height: 120px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
+  .pub-haut img { max-width: 100%; border-radius: 12px; }
+  .header { display: flex; align-items: center; gap: 20px; background: rgba(255,255,255,0.5); backdrop-filter: blur(8px); padding: 10px 20px; border-radius: 16px; margin-bottom: 10px; flex-wrap: wrap; border: 1px solid rgba(255,255,255,0.2); }
+  .logo-entreprise { display: flex; flex-direction: column; align-items: flex-start; }
+  .logo-entreprise img { height: 40px; }
+  .logo-entreprise span { font-size: 0.8rem; color: #4b5563; }
+  .logo-site { flex: 1; text-align: center; }
+  .logo-site img { height: 60px; max-height: 80px; }
+  .nav-buttons { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+  .nav-btn { padding: 14px 35px; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; font-size: 1.2rem; background: rgba(255,255,255,0.6); color: #1a365d; backdrop-filter: blur(4px); transition: 0.2s; border: 1px solid rgba(255,255,255,0.2); }
+  .nav-btn:hover { background: rgba(255,255,255,0.8); transform: translateY(-2px); }
+  .nav-btn.active { background: #fbbf24; color: #1a365d; border-color: #f59e0b; }
+  .card { background: rgba(255,255,255,0.6); backdrop-filter: blur(8px); padding: 20px; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.3); }
+  .card h2 { margin-top: 0; color: #1a365d; }
+  #trajetsList { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+  #attenteListe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+  .trajet-card, .attente-card { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; font-size: 0.95rem; border-left: 4px solid #10b981; }
+  .attente-card { border-left: 4px solid #f59e0b; }
+  .trajet-card .titre, .attente-card .nom { font-weight: bold; font-size: 1.1rem; }
+  .trajet-card .meta, .attente-card .detail { color: #4b5563; font-size: 0.9rem; margin-top: 4px; }
+  .attente-card .trajet { color: #1a365d; font-weight: 600; margin: 4px 0; }
+  .badge-client { background: #fbbf24; color: #1f2937; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; margin-left: 6px; }
+  .btn-action { background: #f59e0b; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin: 2px; }
+  .btn-action.danger { background: #ef4444; }
+  .btn-action.success { background: #10b981; }
+  .recherche-container { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 15px; }
+  .recherche-container input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; flex: 1; min-width: 200px; background: rgba(255,255,255,0.8); }
+  .recherche-container button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+  .btn-rechercher { background: #3b82f6; color: white; }
+  .btn-rechercher:hover { background: #2563eb; }
+  .btn-effacer { background: #6b7280; color: white; }
+  .btn-effacer:hover { background: #4b5563; }
+  .btn-inscrire { background: #10b981; color: white; }
+  .btn-inscrire:hover { background: #059669; }
+  .regle-item { padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+  .regle-item:last-child { border-bottom: none; }
+  .regle-item::before { content: "• "; color: #3b82f6; font-weight: bold; }
+  .footer { text-align: center; margin-top: 40px; padding: 20px; color: #4a5568; font-size: 0.9rem; border-top: 1px solid rgba(0,0,0,0.05); }
+  .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+  .modal-content { background: white; padding: 25px; border-radius: 20px; width: 500px; max-width: 90%; max-height: 80vh; overflow-y: auto; }
+  .modal-content h3 { margin-top: 0; }
+  .modal-content label { display: block; font-weight: 600; margin: 10px 0 4px; }
+  .modal-content input, .modal-content select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
+  .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+  .btn-confirm { background: #3b82f6; color: white; }
+  .btn-cancel { background: #6b7280; color: white; }
+  .btn-danger { background: #ef4444; color: white; }
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .form-row .form-group { flex: 1; min-width: 180px; }
+  @media (max-width: 700px) {
+    #trajetsList, #attenteListe { grid-template-columns: 1fr; }
+    .sidebar-pub { width: 100%; }
+    .container { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="blob1"></div><div class="blob2"></div><div class="blob3"></div>
+<div class="container">
+  <div class="main-content">
+    <div class="header">
+      <div class="logo-entreprise">
+        <img src="https://via.placeholder.com/40x40/3b82f6/ffffff?text=JB" alt="Logo">
+        <span>📍 Dakar, Sénégal</span>
+        <span>📞 +221 77 123 45 67</span>
+      </div>
+      <div class="logo-site"><img src="https://via.placeholder.com/120x60/10b981/ffffff?text=Trafic+Clic" alt="Trafic Clic"></div>
+    </div>
+    <div id="pubHaut" class="pub-haut">📢 Chargement...</div>
+    <div class="nav-buttons">
+      <button class="nav-btn active" data-onglet="trajets">🚌 Trajets disponibles</button>
+      <button class="nav-btn" data-onglet="attente">⏳ Clients en attente</button>
+      <button class="nav-btn" data-onglet="regles">📋 Règles</button>
+    </div>
+    <div id="contenuTrajets"><div class="card" style="padding:0;background:transparent;backdrop-filter:none;border:none;box-shadow:none;"><div id="trajetsList">Chargement...</div></div></div>
+    <div id="contenuAttente" style="display:none;">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom:15px;">
+          <h2 style="margin:0;">⏳ Clients en attente</h2>
+          <button class="btn-inscrire" onclick="ouvrirFormulaire()">➕ S'inscrire</button>
+        </div>
+        <div class="recherche-container">
+          <input type="tel" id="telClient" placeholder="Entrez votre téléphone" value="">
+          <button class="btn-rechercher" id="btnRechercher">🔍 Rechercher</button>
+          <button class="btn-effacer" id="btnEffacer">Effacer</button>
+        </div>
+        <div id="attenteListe">Chargement...</div>
+      </div>
+    </div>
+    <div id="contenuRegles" style="display:none;"><div class="card"><h2>📜 Règles de covoiturage</h2><div class="regle-item">Le covoiturage est basé sur la confiance.</div><div class="regle-item">Les passagers confirment leur réservation 2h avant le départ.</div><div class="regle-item">Le tarif est fixé par le conducteur.</div><div class="regle-item">Les annulations sont possibles jusqu'à 24h avant.</div></div></div>
+    <div class="footer">&copy; 2026 Trafic Clic – Tous droits réservés</div>
+  </div>
+  <div class="sidebar-pub">
+    <div id="pubDroite1" class="pub-item">📢 Chargement...</div>
+    <div id="pubDroite2" class="pub-item">📢 Chargement...</div>
+    <div id="pubDroite3" class="pub-item">📢 Chargement...</div>
+  </div>
+</div>
+
+<!-- MODALE FORMULAIRE D'INSCRIPTION -->
+<div id="modalFormulaire" class="modal">
+  <div class="modal-content">
+    <h3>📝 Inscription en liste d'attente</h3>
+    <form id="formInscription">
+      <div class="form-row">
+        <div class="form-group"><label>Nom complet</label><input type="text" id="inscNom" placeholder="Votre nom" required></div>
+        <div class="form-group"><label>Téléphone</label><input type="tel" id="inscTel" placeholder="Votre téléphone" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Région de départ</label>
+          <input list="regions" id="inscDepart" placeholder="Ex: Dakar" required>
+          <datalist id="regions">
+            <option value="Dakar"><option value="Thiès"><option value="Saint-Louis"><option value="Louga">
+            <option value="Matam"><option value="Diourbel"><option value="Fatick"><option value="Kaolack">
+            <option value="Kaffrine"><option value="Kolda"><option value="Sédhiou"><option value="Ziguinchor">
+            <option value="Kédougou"><option value="Tambacounda">
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label>Département d'arrivée</label>
+          <input list="departements" id="inscArrivee" placeholder="Ex: Thiès" required>
+          <datalist id="departements">
+            <option value="Dakar"><option value="Pikine"><option value="Guédiawaye"><option value="Rufisque">
+            <option value="Thiès"><option value="Tivaouane"><option value="Mbour">
+            <option value="Saint-Louis"><option value="Dagana"><option value="Podor">
+            <option value="Louga"><option value="Kebemer"><option value="Linguère">
+            <option value="Matam"><option value="Kanel"><option value="Ranérou-Ferlo">
+            <option value="Diourbel"><option value="Bambey"><option value="Mbacké">
+            <option value="Fatick"><option value="Foundiougne"><option value="Gossas">
+            <option value="Kaolack"><option value="Guinguinéo"><option value="Nioro du Rip">
+            <option value="Kaffrine"><option value="Birkelane"><option value="Koungheul"><option value="Malem Hodar">
+            <option value="Kolda"><option value="Médina Yoro Foulah"><option value="Vélingara">
+            <option value="Sédhiou"><option value="Bounkiling"><option value="Goudomp">
+            <option value="Ziguinchor"><option value="Bignona"><option value="Oussouye">
+            <option value="Kédougou"><option value="Salémata"><option value="Saraya">
+            <option value="Tambacounda"><option value="Bakel"><option value="Goudiry"><option value="Koumpentoum">
+          </datalist>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nombre de places</label><input type="number" id="inscPlaces" min="1" value="1" required></div>
+        <div class="form-group"><label>Heure souhaitée</label><input type="time" id="inscHeure"></div>
+      </div>
+      <div class="form-group"><label>Date souhaitée</label><input type="date" id="inscDate" required></div>
+      <div id="inscMessage" style="margin-top:10px;color:red;"></div>
+      <div class="modal-actions">
+        <button type="submit" class="btn-confirm">📤 Envoyer</button>
+        <button type="button" class="btn-cancel" onclick="fermerFormulaire()">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODALE MODIFICATION -->
+<div id="modalModif" class="modal">
+  <div class="modal-content">
+    <h3>📝 Modifier votre demande</h3>
+    <input type="hidden" id="modifId">
+    <label>Date souhaitée</label>
+    <input type="date" id="modifDate">
+    <label>Heure souhaitée</label>
+    <input type="time" id="modifHeure">
+    <label>Nombre de places</label>
+    <input type="number" id="modifPlaces" min="1" value="1">
+    <div id="modifMessage" style="margin-top:10px;color:red;"></div>
+    <div class="modal-actions">
+      <button class="btn-confirm" id="btnModifConfirmer">✅ Enregistrer</button>
+      <button class="btn-danger" id="btnModifAnnuler">❌ Annuler ma demande</button>
+      <button class="btn-cancel" onclick="fermerModale()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== PUBLICITÉS ======
+async function loadPublicites() {
+  const emplacements = {
+    'haut': document.getElementById('pubHaut'),
+    'droite1': document.getElementById('pubDroite1'),
+    'droite2': document.getElementById('pubDroite2'),
+    'droite3': document.getElementById('pubDroite3')
+  };
+  try {
+    const res = await fetch('/api/admin/publicites');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const pubs = await res.json();
+    const now = new Date().toISOString().split('T')[0];
+    const actives = pubs.filter(p => p.actif === 1 && (!p.date_fin || p.date_fin >= now) && (!p.date_debut || p.date_debut <= now));
+    if (actives.length === 0) {
+      for (const id in emplacements) if (emplacements[id]) emplacements[id].innerHTML = '📢 Aucune publicité active.';
+      return;
+    }
+    actives.forEach(p => {
+      const el = emplacements[p.emplacement.toLowerCase()];
+      if (el) el.innerHTML = `<img src="${p.image_url}" alt="publicité" style="max-width:100%; border-radius:12px;">`;
+    });
+  } catch (e) {
+    console.error('Erreur publicités:', e);
+    for (const id in emplacements) if (emplacements[id]) emplacements[id].innerHTML = '❌ Erreur chargement.';
+  }
+}
+document.addEventListener('DOMContentLoaded', loadPublicites);
+
+// ====== API ======
+async function fetchAPI(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// ====== NAVIGATION ONGLETS ======
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const o = this.dataset.onglet;
+    document.getElementById('contenuTrajets').style.display = o === 'trajets' ? 'block' : 'none';
+    document.getElementById('contenuAttente').style.display = o === 'attente' ? 'block' : 'none';
+    document.getElementById('contenuRegles').style.display = o === 'regles' ? 'block' : 'none';
+    if (o === 'trajets') loadTrajets();
+    if (o === 'attente') loadAttente();
+  });
+});
+
+// ====== TRAJETS ======
+async function loadTrajets() {
+  try {
+    const data = await fetchAPI('/api/trajets');
+    const container = document.getElementById('trajetsList');
+    if (!data || data.length === 0) { container.innerHTML = '<p>Aucun trajet disponible.</p>'; return; }
+    container.innerHTML = data.map(t => {
+      let dateFormatee = 'Date inconnue';
+      if (t.date_depart) {
+        const d = new Date(t.date_depart);
+        if (!isNaN(d)) {
+          const jour = String(d.getDate()).padStart(2,'0');
+          const mois = String(d.getMonth()+1).padStart(2,'0');
+          const annee = d.getFullYear();
+          const heures = String(d.getHours()).padStart(2,'0');
+          const minutes = String(d.getMinutes()).padStart(2,'0');
+          dateFormatee = `${jour}/${mois}/${annee} ${heures}:${minutes}`;
+        }
+      }
+      return `<div class="trajet-card"><div class="titre">${t.depart || '?'} → ${t.arrivee || '?'}</div><div class="meta">📅 ${dateFormatee}</div><div class="meta">💰 ${t.tarif_par_place || 0} FCFA/place</div><div class="meta">🚗 ${t.places_restantes ?? 0} places restantes</div></div>`;
+    }).join('');
+  } catch(e) { document.getElementById('trajetsList').innerHTML = '<p style="color:red;">Erreur chargement.</p>'; }
+}
+
+// ====== ATTENTE (avec tout) ======
+const STORAGE_KEY = 'clientTel';
+let toutesDemandes = [];
+let telephone = localStorage.getItem(STORAGE_KEY) || '';
+document.getElementById('telClient').value = telephone;
+
+async function loadAttente() {
+  try {
+    const data = await fetchAPI('/api/attente');
+    toutesDemandes = data;
+    afficherDemandes();
+  } catch(e) {
+    document.getElementById('attenteListe').innerHTML = '<p style="color:red;">Erreur chargement.</p>';
+  }
+}
+
+function afficherDemandes() {
+  const container = document.getElementById('attenteListe');
+  const tel = document.getElementById('telClient').value.trim();
+  if (!tel) {
+    if (!toutesDemandes || toutesDemandes.length === 0) {
+      container.innerHTML = '<p>Aucune demande en attente.</p>';
+      return;
+    }
+    container.innerHTML = toutesDemandes.map(a => formatCarte(a, false)).join('');
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY, tel);
+  const mesDemandes = toutesDemandes.filter(a => a.telephone === tel);
+  const autresDemandes = toutesDemandes.filter(a => a.telephone !== tel);
+  const liste = [...mesDemandes, ...autresDemandes];
+  if (liste.length === 0) {
+    container.innerHTML = '<p>Aucune demande trouvée pour ce numéro.</p>';
+    return;
+  }
+  container.innerHTML = liste.map(a => {
+    const estMienne = (a.telephone === tel);
+    return formatCarte(a, estMienne);
+  }).join('');
+}
+
+function formatCarte(a, estMienne) {
+  let dateFormatee = '?';
+  if (a.date_souhaitee) {
+    const d = new Date(a.date_souhaitee);
+    if (!isNaN(d)) {
+      const jour = String(d.getDate()).padStart(2,'0');
+      const mois = String(d.getMonth()+1).padStart(2,'0');
+      const annee = d.getFullYear();
+      dateFormatee = `${jour}/${mois}/${annee}`;
+    }
+  }
+  let heureFormatee = 'Non précisée';
+  if (a.heure_debut) { heureFormatee = a.heure_debut.substring(0,5); }
+  const badge = estMienne ? '<span class="badge-client">📌 Votre demande</span>' : '';
+  let actions = '';
+  if (estMienne && a.actif == 1) {
+    actions = `
+      <button class="btn-action" onclick="ouvrirModif(${a.id})">✏️ Modifier</button>
+      <button class="btn-action danger" onclick="annulerDemande(${a.id})">❌ Annuler</button>
+    `;
+  }
+  return `
+    <div class="attente-card" data-id="${a.id}">
+      <div class="nom">🧑‍💼 ${a.nom || 'Anonyme'} ${badge}</div>
+      <div class="trajet">📍 ${a.depart || '?'} → ${a.arrivee || '?'}</div>
+      <div class="detail">👥 ${a.nb_places || 1} place(s) – 🕒 ${heureFormatee} – 📅 ${dateFormatee}</div>
+      ${actions ? '<div style="margin-top:6px;">'+actions+'</div>' : ''}
+    </div>
+  `;
+}
+
+// ====== RECHERCHE ======
+document.getElementById('btnRechercher').addEventListener('click', function() {
+  const tel = document.getElementById('telClient').value.trim();
+  if (tel) localStorage.setItem(STORAGE_KEY, tel);
+  afficherDemandes();
+});
+document.getElementById('btnEffacer').addEventListener('click', function() {
+  document.getElementById('telClient').value = '';
+  localStorage.removeItem(STORAGE_KEY);
+  afficherDemandes();
+});
+
+// ====== FORMULAIRE D'INSCRIPTION ======
+function ouvrirFormulaire() {
+  document.getElementById('modalFormulaire').style.display = 'flex';
+  document.getElementById('inscMessage').textContent = '';
+  document.getElementById('formInscription').reset();
+}
+function fermerFormulaire() {
+  document.getElementById('modalFormulaire').style.display = 'none';
+}
+document.getElementById('formInscription').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const nom = document.getElementById('inscNom').value.trim();
+  const telephone = document.getElementById('inscTel').value.trim();
+  const depart = document.getElementById('inscDepart').value.trim();
+  const arrivee = document.getElementById('inscArrivee').value.trim();
+  const nb_places = parseInt(document.getElementById('inscPlaces').value) || 1;
+  const heure_debut = document.getElementById('inscHeure').value;
+  const date_souhaitee = document.getElementById('inscDate').value;
+  const msg = document.getElementById('inscMessage');
+  if (!nom || !telephone || !depart || !arrivee || !date_souhaitee) {
+    msg.textContent = 'Tous les champs sont obligatoires.';
+    msg.style.color = 'red';
+    return;
+  }
+  try {
+    const client = await fetchAPI('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, telephone })
+    });
+    const res = await fetchAPI('/api/attente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: client.id,
+        depart,
+        arrivee,
+        heure_debut: heure_debut || null,
+        date_souhaitee,
+        nb_places
+      })
+    });
+    msg.textContent = `✅ Demande ajoutée ! (ID: ${res.id})`;
+    msg.style.color = 'green';
+    setTimeout(() => { fermerFormulaire(); loadAttente(); }, 1200);
+  } catch(err) {
+    msg.textContent = '❌ Erreur : ' + err.message;
+    msg.style.color = 'red';
+  }
+});
+document.getElementById('modalFormulaire').addEventListener('click', function(e) {
+  if (e.target === this) fermerFormulaire();
+});
+
+// ====== MODIFICATION / ANNULATION ======
+function ouvrirModif(id) {
+  const demande = toutesDemandes.find(a => a.id === id);
+  if (!demande) return alert('Demande introuvable');
+  document.getElementById('modifId').value = id;
+  document.getElementById('modifDate').value = demande.date_souhaitee || '';
+  document.getElementById('modifHeure').value = demande.heure_debut || '';
+  document.getElementById('modifPlaces').value = demande.nb_places || 1;
+  document.getElementById('modifMessage').textContent = '';
+  document.getElementById('modalModif').style.display = 'flex';
+}
+function fermerModale() {
+  document.getElementById('modalModif').style.display = 'none';
+}
+document.getElementById('btnModifConfirmer').addEventListener('click', async function() {
+  const id = document.getElementById('modifId').value;
+  const date = document.getElementById('modifDate').value;
+  const heure = document.getElementById('modifHeure').value;
+  const places = parseInt(document.getElementById('modifPlaces').value) || 1;
+  if (!date) { document.getElementById('modifMessage').textContent = 'Veuillez saisir une date.'; return; }
+  try {
+    await fetchAPI('/api/attente/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date_souhaitee: date, heure_debut: heure, nb_places: places })
+    });
+    document.getElementById('modifMessage').textContent = '✅ Demande modifiée !';
+    document.getElementById('modifMessage').style.color = 'green';
+    setTimeout(() => { fermerModale(); loadAttente(); }, 1000);
+  } catch(err) {
+    document.getElementById('modifMessage').textContent = '❌ Erreur : ' + err.message;
+    document.getElementById('modifMessage').style.color = 'red';
+  }
+});
+document.getElementById('btnModifAnnuler').addEventListener('click', async function() {
+  const id = document.getElementById('modifId').value;
+  if (!confirm('Annuler définitivement cette demande ?')) return;
+  try {
+    await fetchAPI('/api/attente/' + id, { method: 'DELETE' });
+    document.getElementById('modifMessage').textContent = '✅ Demande annulée.';
+    document.getElementById('modifMessage').style.color = 'green';
+    setTimeout(() => { fermerModale(); loadAttente(); }, 1000);
+  } catch(err) {
+    document.getElementById('modifMessage').textContent = '❌ Erreur : ' + err.message;
+    document.getElementById('modifMessage').style.color = 'red';
+  }
+});
+async function annulerDemande(id) {
+  if (!confirm('Annuler définitivement cette demande ?')) return;
+  try {
+    await fetchAPI('/api/attente/' + id, { method: 'DELETE' });
+    loadAttente();
+  } catch(err) {
+    alert('Erreur : ' + err.message);
+  }
+}
+document.getElementById('modalModif').addEventListener('click', function(e) {
+  if (e.target === this) fermerModale();
+});
+
+// ====== INIT ======
+loadTrajets();
+loadAttente();
+</script>
+</body>
+</html>

@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Trafic Clic - Client</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(145deg, #fbc2eb 0%, #a6c1ee 100%);
+    position: relative;
+    overflow-x: hidden;
+  }
+  .blob1, .blob2, .blob3 {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .blob1 { width: 500px; height: 500px; background: #f472b6; top: -150px; left: -100px; }
+  .blob2 { width: 400px; height: 400px; background: #60a5fa; bottom: -100px; right: -50px; }
+  .blob3 { width: 300px; height: 300px; background: #fbbf24; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+  .container {
+    max-width: 1400px;
+    margin: auto;
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+  .main-content {
+    flex: 1;
+    min-width: 300px;
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 30px;
+    padding: 25px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .sidebar-pub {
+    width: 320px;
+    background: rgba(255,255,255,0.5);
+    backdrop-filter: blur(8px);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border: 1px solid rgba(255,255,255,0.2);
+    min-height: 300px;
+  }
+  .pub-item {
+    width: 100%;
+    min-height: 120px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.3);
+    color: #4b5563;
+    font-weight: 500;
+  }
+  .pub-item img { max-width: 100%; border-radius: 12px; }
+  .pub-haut {
+    background: rgba(255,255,255,0.3);
+    padding: 20px;
+    min-height: 120px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .pub-haut img { max-width: 100%; border-radius: 12px; }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: rgba(255,255,255,0.5);
+    backdrop-filter: blur(8px);
+    padding: 10px 20px;
+    border-radius: 16px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .logo-entreprise {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    background: #3b82f6;
+    color: white;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.2rem;
+  }
+  .logo-entreprise span { font-size: 0.8rem; color: #4b5563; display: block; }
+  .logo-site {
+    flex: 1;
+    text-align: center;
+  }
+  .logo-site .brand {
+    background: #10b981;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 1.4rem;
+    display: inline-block;
+  }
+
+  .nav-buttons { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+  .nav-btn { padding: 14px 35px; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; font-size: 1.2rem; background: rgba(255,255,255,0.6); color: #1a365d; backdrop-filter: blur(4px); transition: 0.2s; border: 1px solid rgba(255,255,255,0.2); }
+  .nav-btn:hover { background: rgba(255,255,255,0.8); transform: translateY(-2px); }
+  .nav-btn.active { background: #fbbf24; color: #1a365d; border-color: #f59e0b; }
+
+  .card { background: rgba(255,255,255,0.6); backdrop-filter: blur(8px); padding: 20px; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.3); }
+  .card h2 { margin-top: 0; color: #1a365d; }
+
+  #trajetsList, #attenteListe {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
+  .trajet-card, .attente-card {
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    font-size: 0.95rem;
+    border-left: 4px solid #10b981;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .attente-card { border-left-color: #f59e0b; }
+  .attente-card .nom { font-weight: bold; font-size: 1.1rem; }
+  .attente-card .trajet { color: #1a365d; font-weight: 600; }
+  .attente-card .detail { color: #4b5563; font-size: 0.9rem; }
+  .attente-card .actions { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .attente-card .badge-mien {
+    background: #fbbf24;
+    color: #1f2937;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    display: inline-block;
+    align-self: flex-start;
+  }
+
+  .btn-action {
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.8rem;
+    transition: 0.2s;
+  }
+  .btn-action.primary { background: #3b82f6; color: white; }
+  .btn-action.primary:hover { background: #2563eb; }
+  .btn-action.warning { background: #f59e0b; color: white; }
+  .btn-action.warning:hover { background: #d97706; }
+  .btn-action.danger { background: #ef4444; color: white; }
+  .btn-action.danger:hover { background: #dc2626; }
+  .btn-action.success { background: #10b981; color: white; }
+  .btn-action.success:hover { background: #059669; }
+
+  .filter-bar {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+  }
+  .filter-bar input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 16px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 30px;
+    font-size: 1rem;
+    background: rgba(255,255,255,0.8);
+  }
+  .filter-bar .btn-inscrire {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .filter-bar .btn-inscrire:hover { background: #059669; }
+
+  .regle-item { padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+  .regle-item:last-child { border-bottom: none; }
+  .regle-item::before { content: "• "; color: #3b82f6; font-weight: bold; }
+
+  footer { text-align: center; margin-top: 40px; padding: 20px; color: #4a5568; font-size: 0.9rem; border-top: 1px solid rgba(0,0,0,0.05); }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: white;
+    padding: 30px;
+    border-radius: 24px;
+    width: 500px;
+    max-width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-box h2 { margin-top: 0; color: #1a365d; }
+  .modal-box .form-group { margin-bottom: 15px; }
+  .modal-box .form-group label { display: block; font-weight: 600; margin-bottom: 4px; color: #1a365d; }
+  .modal-box .form-group input, .modal-box .form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 12px;
+    font-size: 1rem;
+    background: rgba(255,255,255,0.8);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .modal-actions button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+  .modal-actions .btn-confirm { background: #3b82f6; color: white; }
+  .modal-actions .btn-confirm:hover { background: #2563eb; }
+  .modal-actions .btn-cancel { background: #6b7280; color: white; }
+  .modal-actions .btn-cancel:hover { background: #4b5563; }
+  .modal-message { margin-top: 10px; padding: 8px; border-radius: 8px; }
+  .modal-message.error { background: #fee2e2; color: #dc2626; }
+  .modal-message.success { background: #d1fae5; color: #065f46; }
+
+  @media (max-width: 700px) {
+    #trajetsList, #attenteListe { grid-template-columns: 1fr; }
+    .sidebar-pub { width: 100%; }
+    .container { flex-direction: column; }
+    .modal-box { width: 95%; padding: 20px; }
+  }
+</style>
+</head>
+<body>
+  <div class="blob1"></div>
+  <div class="blob2"></div>
+  <div class="blob3"></div>
+  <div class="container">
+    <div class="main-content">
+      <div class="header">
+        <div class="logo-entreprise">
+          <div class="logo-icon">TC</div>
+          <div>
+            <span>📍 Dakar, Sénégal</span>
+            <span>📞 +221 77 123 45 67</span>
+          </div>
+        </div>
+        <div class="logo-site"><span class="brand">🚐 Trafic Clic</span></div>
+      </div>
+
+      <div id="pubHaut" class="pub-haut">📢 Chargement...</div>
+
+      <div class="nav-buttons">
+        <button class="nav-btn active" data-onglet="trajets">🚌 Trajets disponibles</button>
+        <button class="nav-btn" data-onglet="attente">⏳ Clients en attente</button>
+        <button class="nav-btn" data-onglet="regles">📋 Règles</button>
+      </div>
+
+      <div id="contenuTrajets">
+        <div class="card" style="padding:0;background:transparent;backdrop-filter:none;border:none;box-shadow:none;">
+          <div id="trajetsList">Chargement...</div>
+        </div>
+      </div>
+
+      <div id="contenuAttente" style="display:none;">
+        <div class="card">
+          <div class="filter-bar">
+            <input type="text" id="searchPhone" placeholder="🔍 Votre numéro de téléphone (pour filtrer et modifier)" />
+            <button class="btn-inscrire" onclick="openInscriptionModal()">➕ S'inscrire</button>
+          </div>
+          <div id="attenteListe">Chargement...</div>
+        </div>
+      </div>
+
+      <div id="contenuRegles" style="display:none;">
+        <div class="card">
+          <h2>📜 Règles de covoiturage</h2>
+          <div id="reglesContainer">Chargement...</div>
+        </div>
+      </div>
+
+      <footer>&copy; 2026 Trafic Clic – Tous droits réservés</footer>
+    </div>
+
+    <div class="sidebar-pub">
+      <div id="pubDroite1" class="pub-item">📢 Chargement...</div>
+      <div id="pubDroite2" class="pub-item">📢 Chargement...</div>
+      <div id="pubDroite3" class="pub-item">📢 Chargement...</div>
+    </div>
+  </div>
+
+  <!-- MODALE INSCRIPTION -->
+  <div id="modalInscription" class="modal-overlay">
+    <div class="modal-box">
+      <h2>➕ S'inscrire en liste d'attente</h2>
+      <form id="formInscription">
+        <div class="form-group"><label>Nom complet *</label><input type="text" id="insNom" required placeholder="Ex: Jean Dupont"></div>
+        <div class="form-group"><label>Téléphone *</label><input type="tel" id="insTelephone" required placeholder="Ex: 77 123 45 67"></div>
+        <div class="form-group"><label>Région de départ *</label>
+          <select id="insDepart" required onchange="updateArriveeList()">
+            <option value="">Choisir une région...</option>
+            <option value="Dakar">Dakar</option>
+            <option value="Diourbel">Diourbel</option>
+            <option value="Fatick">Fatick</option>
+            <option value="Kaffrine">Kaffrine</option>
+            <option value="Kaolack">Kaolack</option>
+            <option value="Kédougou">Kédougou</option>
+            <option value="Kolda">Kolda</option>
+            <option value="Louga">Louga</option>
+            <option value="Matam">Matam</option>
+            <option value="Saint-Louis">Saint-Louis</option>
+            <option value="Sédhiou">Sédhiou</option>
+            <option value="Tambacounda">Tambacounda</option>
+            <option value="Thiès">Thiès</option>
+            <option value="Ziguinchor">Ziguinchor</option>
+            <option value="Autre">Autre (précisez)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Département d'arrivée *</label>
+          <select id="insArrivee" required>
+            <option value="">Choisir un département...</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Nombre de places *</label><input type="number" id="insPlaces" min="1" value="1" required></div>
+        <div class="form-group"><label>Heure souhaitée *</label><input type="time" id="insHeure" required></div>
+        <div class="form-group"><label>Date souhaitée *</label><input type="date" id="insDate" required></div>
+        <div id="insMessage" class="modal-message"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-confirm">✅ Soumettre</button>
+          <button type="button" class="btn-cancel" onclick="closeModal('modalInscription')">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODALE MODIFICATION -->
+  <div id="modalModification" class="modal-overlay">
+    <div class="modal-box">
+      <h2>✏️ Modifier votre demande</h2>
+      <form id="formModification">
+        <input type="hidden" id="modId">
+        <div class="form-group"><label>Nombre de places</label><input type="number" id="modPlaces" min="1" required></div>
+        <div class="form-group"><label>Heure souhaitée</label><input type="time" id="modHeure" required></div>
+        <div class="form-group"><label>Date souhaitée</label><input type="date" id="modDate" required></div>
+        <div id="modMessage" class="modal-message"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn-confirm">💾 Enregistrer</button>
+          <button type="button" class="btn-cancel" onclick="closeModal('modalModification')">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+// ============================================================
+// CORRESPONDANCE RÉGION → DÉPARTEMENTS
+// ============================================================
+const regionDepartements = {
+  'Dakar': ['Dakar', 'Rufisque', 'Pikine', 'Guédiawaye'],
+  'Diourbel': ['Diourbel', 'Bambey', 'Mbacké'],
+  'Fatick': ['Fatick', 'Foundiougne', 'Gossas'],
+  'Kaffrine': ['Kaffrine', 'Birkelane', 'Malem-Hodar', 'Koungheul'],
+  'Kaolack': ['Kaolack', 'Guinguinéo', 'Nioro du Rip'],
+  'Kédougou': ['Kédougou', 'Salémata', 'Saraya'],
+  'Kolda': ['Kolda', 'Médina Yoro Foulah', 'Vélingara'],
+  'Louga': ['Louga', 'Kébémer', 'Linguère'],
+  'Matam': ['Matam', 'Kanel', 'Ranérou'],
+  'Saint-Louis': ['Saint-Louis', 'Dagana', 'Podor'],
+  'Sédhiou': ['Sédhiou', 'Bounkiling', 'Goudomp'],
+  'Tambacounda': ['Tambacounda', 'Bakel', 'Goudiry', 'Koumpentoum'],
+  'Thiès': ['Thiès', 'Mbour', 'Tivaouane'],
+  'Ziguinchor': ['Ziguinchor', 'Bignona', 'Oussouye']
+};
+
+const tousDepartements = [
+  'Bakel', 'Bambey', 'Bignona', 'Birkelane', 'Bounkiling',
+  'Dagana', 'Dakar', 'Diourbel', 'Fatick', 'Foundiougne',
+  'Gossas', 'Goudiry', 'Goudomp', 'Guédiawaye', 'Guinguinéo',
+  'Kaffrine', 'Kanel', 'Kaolack', 'Kébémer', 'Kédougou',
+  'Kolda', 'Koumpentoum', 'Koungheul', 'Linguère', 'Louga',
+  'Malem-Hodar', 'Mbacké', 'Mbour', 'Médina Yoro Foulah',
+  'Nioro du Rip', 'Oussouye', 'Pikine', 'Podor', 'Ranérou',
+  'Rufisque', 'Saint-Louis', 'Salémata', 'Saraya', 'Sédhiou',
+  'Tambacounda', 'Thiès', 'Tivaouane', 'Vélingara', 'Ziguinchor'
+];
+
+function updateArriveeList() {
+  const departSelect = document.getElementById('insDepart');
+  const arriveeSelect = document.getElementById('insArrivee');
+  const regionChoisie = departSelect.value;
+  arriveeSelect.innerHTML = '<option value="">Choisir un département...</option>';
+  let departementsExclus = [];
+  if (regionChoisie && regionDepartements[regionChoisie]) {
+    departementsExclus = regionDepartements[regionChoisie];
+  }
+  tousDepartements.forEach(dept => {
+    if (!departementsExclus.includes(dept)) {
+      const option = document.createElement('option');
+      option.value = dept;
+      option.textContent = dept;
+      arriveeSelect.appendChild(option);
+    }
+  });
+}
+
+// ============================================================
+// PUBLICITÉS
+// ============================================================
+async function loadPublicites() {
+  const emplacements = {
+    'haut': document.getElementById('pubHaut'),
+    'droite1': document.getElementById('pubDroite1'),
+    'droite2': document.getElementById('pubDroite2'),
+    'droite3': document.getElementById('pubDroite3')
+  };
+  try {
+    const res = await fetch('/api/admin/publicites');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const pubs = await res.json();
+    const now = new Date().toISOString().split('T')[0];
+    const actives = pubs.filter(p => p.actif === 1 && (!p.date_fin || p.date_fin >= now) && (!p.date_debut || p.date_debut <= now));
+    if (actives.length === 0) {
+      for (const id in emplacements) if (emplacements[id]) emplacements[id].innerHTML = '📢 Aucune publicité active.';
+      return;
+    }
+    actives.forEach(p => {
+      const el = emplacements[p.emplacement.toLowerCase()];
+      if (el) el.innerHTML = `<img src="${p.image_url}" alt="publicité" style="max-width:100%; border-radius:12px;">`;
+    });
+  } catch (e) {
+    console.error('Erreur publicités:', e);
+    for (const id in emplacements) if (emplacements[id]) emplacements[id].innerHTML = '❌ Erreur chargement.';
+  }
+}
+document.addEventListener('DOMContentLoaded', loadPublicites);
+
+async function fetchAPI(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const o = this.dataset.onglet;
+    document.getElementById('contenuTrajets').style.display = o === 'trajets' ? 'block' : 'none';
+    document.getElementById('contenuAttente').style.display = o === 'attente' ? 'block' : 'none';
+    document.getElementById('contenuRegles').style.display = o === 'regles' ? 'block' : 'none';
+    if (o === 'trajets') loadTrajets();
+    if (o === 'attente') loadAttente();
+    if (o === 'regles') loadRegles();
+  });
+});
+
+async function loadTrajets() {
+  try {
+    const data = await fetchAPI('/api/trajets');
+    const container = document.getElementById('trajetsList');
+    if (!data || data.length === 0) { container.innerHTML = '<p>Aucun trajet disponible.</p>'; return; }
+    container.innerHTML = data.map(t => {
+      let dateFormatee = 'Date inconnue';
+      if (t.date_depart) {
+        const d = new Date(t.date_depart);
+        if (!isNaN(d)) {
+          const jour = String(d.getDate()).padStart(2,'0');
+          const mois = String(d.getMonth()+1).padStart(2,'0');
+          const annee = d.getFullYear();
+          const heures = String(d.getHours()).padStart(2,'0');
+          const minutes = String(d.getMinutes()).padStart(2,'0');
+          dateFormatee = `${jour}/${mois}/${annee} ${heures}:${minutes}`;
+        }
+      }
+      return `<div class="trajet-card"><div class="titre">${t.depart || '?'} → ${t.arrivee || '?'}</div><div class="meta">📅 ${dateFormatee}</div><div class="meta">💰 ${t.tarif_par_place || 0} FCFA/place</div><div class="meta">🚗 ${t.places_restantes ?? 0} places restantes</div></div>`;
+    }).join('');
+  } catch(e) { document.getElementById('trajetsList').innerHTML = '<p style="color:red;">Erreur chargement.</p>'; }
+}
+
+let allAttenteData = [];
+async function loadAttente() {
+  try {
+    const data = await fetchAPI('/api/attente');
+    allAttenteData = data || [];
+    const searchInput = document.getElementById('searchPhone');
+    // Récupérer le numéro depuis le champ ou localStorage
+    let phoneFilter = searchInput.value.trim();
+    if (!phoneFilter) {
+      phoneFilter = localStorage.getItem('clientPhone') || '';
+    }
+    if (phoneFilter) searchInput.value = phoneFilter;
+    localStorage.setItem('clientPhone', phoneFilter);
+
+    const personalItems = allAttenteData.filter(a => a.telephone && a.telephone === phoneFilter);
+    const otherItems = allAttenteData.filter(a => !(a.telephone && a.telephone === phoneFilter));
+    const sorted = [...personalItems, ...otherItems];
+
+    const container = document.getElementById('attenteListe');
+    if (sorted.length === 0) {
+      container.innerHTML = '<p>Aucune demande en attente.</p>';
+      return;
+    }
+
+    container.innerHTML = sorted.map(a => {
+      const isPersonal = a.telephone && a.telephone === phoneFilter;
+      let dateFormatee = '?';
+      if (a.date_souhaitee) {
+        const d = new Date(a.date_souhaitee);
+        if (!isNaN(d)) {
+          const jour = String(d.getDate()).padStart(2,'0');
+          const mois = String(d.getMonth()+1).padStart(2,'0');
+          const annee = d.getFullYear();
+          dateFormatee = `${jour}/${mois}/${annee}`;
+        }
+      }
+      let heureFormatee = 'Non précisée';
+      if (a.heure_debut) { heureFormatee = a.heure_debut.substring(0,5); }
+
+      const badgeMien = isPersonal ? '<span class="badge-mien">📌 Votre demande</span>' : '';
+      let actionsHtml = '';
+      if (isPersonal) {
+        actionsHtml = `
+          <div class="actions">
+            <button class="btn-action warning" onclick="openEditModal(${a.id})">✏️ Modifier</button>
+            <button class="btn-action danger" onclick="deleteAttente(${a.id})">❌ Annuler</button>
+          </div>
+        `;
+      }
+
+      return `<div class="attente-card">
+        <div class="nom">🧑‍💼 ${a.nom || 'Anonyme'} ${badgeMien}</div>
+        <div class="trajet">📍 ${a.depart || '?'} → ${a.arrivee || '?'}</div>
+        <div class="detail">👥 ${a.nb_places || 1} place(s) – 🕒 ${heureFormatee} – 📅 ${dateFormatee}</div>
+        ${actionsHtml}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('attenteListe').innerHTML = '<p style="color:red;">Erreur chargement.</p>';
+  }
+}
+
+// Quand l'utilisateur tape dans la barre, on met à jour localStorage et on recharge
+document.getElementById('searchPhone').addEventListener('input', function() {
+  localStorage.setItem('clientPhone', this.value.trim());
+  loadAttente();
+});
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('active');
+  });
+});
+
+function openInscriptionModal() {
+  document.getElementById('formInscription').reset();
+  document.getElementById('insMessage').textContent = '';
+  document.getElementById('insMessage').className = 'modal-message';
+  updateArriveeList();
+  openModal('modalInscription');
+}
+
+document.getElementById('formInscription').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const nom = document.getElementById('insNom').value.trim();
+  const telephone = document.getElementById('insTelephone').value.trim();
+  const depart = document.getElementById('insDepart').value;
+  const arrivee = document.getElementById('insArrivee').value;
+  const nb_places = parseInt(document.getElementById('insPlaces').value);
+  const heure_debut = document.getElementById('insHeure').value;
+  const date_souhaitee = document.getElementById('insDate').value;
+  const msg = document.getElementById('insMessage');
+
+  if (!nom || !telephone || !depart || !arrivee || !nb_places || !heure_debut || !date_souhaitee) {
+    msg.textContent = '⚠️ Tous les champs sont obligatoires.';
+    msg.className = 'modal-message error';
+    return;
+  }
+
+  try {
+    const clientRes = await fetchAPI('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, telephone })
+    });
+
+    await fetchAPI('/api/attente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: clientRes.id,
+        nom,
+        telephone,
+        depart,
+        arrivee,
+        nb_places,
+        heure_debut,
+        date_souhaitee
+      })
+    });
+
+    localStorage.setItem('clientPhone', telephone);
+    const searchInput = document.getElementById('searchPhone');
+    searchInput.value = telephone;
+    const event = new Event('input', { bubbles: true });
+    searchInput.dispatchEvent(event);
+
+    msg.textContent = '✅ Inscription réussie ! Votre demande apparaît en tête de liste.';
+    msg.className = 'modal-message success';
+    setTimeout(() => {
+      closeModal('modalInscription');
+    }, 1200);
+  } catch (err) {
+    msg.textContent = '❌ Erreur : ' + err.message;
+    msg.className = 'modal-message error';
+  }
+});
+
+function openEditModal(id) {
+  const item = allAttenteData.find(a => a.id === id);
+  if (!item) { alert('Demande introuvable.'); return; }
+
+  document.getElementById('modId').value = id;
+  document.getElementById('modPlaces').value = item.nb_places || 1;
+  if (item.heure_debut) {
+    const h = item.heure_debut.substring(0,5);
+    document.getElementById('modHeure').value = h;
+  } else {
+    document.getElementById('modHeure').value = '';
+  }
+  if (item.date_souhaitee) {
+    const d = new Date(item.date_souhaitee);
+    if (!isNaN(d)) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      document.getElementById('modDate').value = `${year}-${month}-${day}`;
+    } else {
+      document.getElementById('modDate').value = '';
+    }
+  } else {
+    document.getElementById('modDate').value = '';
+  }
+
+  document.getElementById('modMessage').textContent = '';
+  document.getElementById('modMessage').className = 'modal-message';
+  openModal('modalModification');
+}
+
+document.getElementById('formModification').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const id = document.getElementById('modId').value;
+  const nb_places = parseInt(document.getElementById('modPlaces').value);
+  const heure_debut = document.getElementById('modHeure').value;
+  const date_souhaitee = document.getElementById('modDate').value;
+  const msg = document.getElementById('modMessage');
+
+  if (!nb_places || !heure_debut || !date_souhaitee) {
+    msg.textContent = '⚠️ Tous les champs sont obligatoires.';
+    msg.className = 'modal-message error';
+    return;
+  }
+
+  try {
+    await fetchAPI('/api/attente/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nb_places, heure_debut, date_souhaitee })
+    });
+    msg.textContent = '✅ Demande modifiée avec succès.';
+    msg.className = 'modal-message success';
+    setTimeout(() => {
+      closeModal('modalModification');
+      loadAttente();
+    }, 1000);
+  } catch (err) {
+    msg.textContent = '❌ Erreur : ' + err.message;
+    msg.className = 'modal-message error';
+  }
+});
+
+async function deleteAttente(id) {
+  if (!confirm('Voulez-vous vraiment annuler (supprimer) cette demande ?')) return;
+  try {
+    await fetchAPI('/api/attente/' + id, { method: 'DELETE' });
+    alert('✅ Demande annulée.');
+    loadAttente();
+  } catch (err) {
+    alert('❌ Erreur : ' + err.message);
+  }
+}
+
+async function loadRegles() {
+  try {
+    const res = await fetch('/api/regles?type=client');
+    if (!res.ok) throw new Error('Erreur chargement');
+    const data = await res.json();
+    const container = document.getElementById('reglesContainer');
+    if (data.contenu) {
+      const lignes = data.contenu.split('\n').filter(l => l.trim() !== '');
+      container.innerHTML = lignes.map(l => `<div class="regle-item">${l.trim()}</div>`).join('');
+    } else {
+      container.innerHTML = '<p>Aucune règle définie.</p>';
+    }
+  } catch(e) {
+    document.getElementById('reglesContainer').innerHTML = '<p style="color:red;">Erreur chargement des règles.</p>';
+  }
+}
+
+loadTrajets();
+loadAttente();
+loadRegles();
+</script>
+</body>
+</html>

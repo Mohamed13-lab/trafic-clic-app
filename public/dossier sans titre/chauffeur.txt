@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Trafic Clic - Chauffeur</title>
+<style>
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(145deg, #a1c4fd 0%, #c2e9fb 100%);
+    position: relative;
+    overflow-x: hidden;
+    margin: 0;
+  }
+  .blob1, .blob2, .blob3 {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.3;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .blob1 { width: 500px; height: 500px; background: #60a5fa; top: -150px; left: -100px; }
+  .blob2 { width: 400px; height: 400px; background: #f472b6; bottom: -100px; right: -50px; }
+  .blob3 { width: 300px; height: 300px; background: #fcd34d; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+  .container {
+    max-width: 1400px;
+    margin: auto;
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+  .main-content {
+    flex: 1;
+    min-width: 300px;
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 30px;
+    padding: 25px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .sidebar-pub {
+    width: 320px;
+    background: rgba(255,255,255,0.5);
+    backdrop-filter: blur(8px);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border: 1px solid rgba(255,255,255,0.2);
+    min-height: 300px;
+  }
+  .pub-item {
+    width: 100%;
+    min-height: 120px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.3);
+    color: #4b5563;
+    font-weight: 500;
+  }
+  .pub-item img { max-width: 100%; border-radius: 12px; }
+  .pub-haut {
+    background: rgba(255,255,255,0.3);
+    padding: 20px;
+    min-height: 120px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .pub-haut img { max-width: 100%; border-radius: 12px; }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,0.5);
+    backdrop-filter: blur(8px);
+    padding: 10px 20px;
+    border-radius: 16px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .header-left { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .logo-entreprise {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    background: #3b82f6;
+    color: white;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.2rem;
+  }
+  .logo-entreprise span { font-size: 0.8rem; color: #4b5563; display: block; }
+  .logo-site .brand {
+    background: #10b981;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 1.4rem;
+    display: inline-block;
+  }
+
+  .avatar-wrapper { position: relative; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .avatar { display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px; border-radius: 50%; background: #2b6cb0; color: white; font-weight: bold; font-size: 1.2rem; text-transform: uppercase; transition: background 0.2s; }
+  .avatar-wrapper:hover .avatar { background: #1a4f8b; }
+  .welcome-text { font-weight: 600; color: #1a365d; font-size: 1.1rem; }
+  .dropdown-arrow { font-size: 0.8rem; color: #4a5568; transition: transform 0.2s; }
+  .avatar-wrapper.open .dropdown-arrow { transform: rotate(180deg); }
+  .dropdown-menu { display: none; position: absolute; top: 60px; right: 0; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); min-width: 200px; padding: 8px 0; z-index: 1000; border: 1px solid #e2e8f0; }
+  .dropdown-menu.show { display: block; }
+  .dropdown-menu button { display: block; width: 100%; padding: 10px 20px; border: none; background: transparent; text-align: left; font-size: 0.95rem; cursor: pointer; transition: background 0.1s; color: #2d3748; }
+  .dropdown-menu button:hover { background: #f7fafc; }
+  .dropdown-menu .btn-logout { color: #e53e3e; border-bottom: 1px solid #edf2f7; }
+  .dropdown-menu .btn-logout:hover { background: #fff5f5; }
+  .dropdown-menu .btn-delete { color: #c53030; }
+  .dropdown-menu .btn-delete:hover { background: #fff5f5; }
+
+  .nav-buttons { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+  .nav-btn { padding: 14px 35px; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; font-size: 1.2rem; background: rgba(255,255,255,0.6); color: #1a365d; backdrop-filter: blur(4px); transition: 0.2s; border: 1px solid rgba(255,255,255,0.2); }
+  .nav-btn:hover { background: rgba(255,255,255,0.8); transform: translateY(-2px); }
+  .nav-btn.active { background: #fbbf24; color: #1a365d; border-color: #f59e0b; }
+
+  .card { background: rgba(255,255,255,0.6); backdrop-filter: blur(8px); padding: 20px; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.3); }
+  .card h2 { margin-top: 0; color: #1a365d; }
+  #trajetsList, #mesTrajetsList { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+  .trajet-card { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; font-size: 0.95rem; border-left: 4px solid #10b981; }
+  .trajet-card .titre { font-weight: bold; font-size: 1.1rem; }
+  .trajet-card .statut { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; color: white; }
+  .statut-actif { background: #10b981; } .statut-annule { background: #6b7280; } .statut-complet { background: #ef4444; } .statut-en_cours { background: #f59e0b; } .statut-termine { background: #3b82f6; }
+  .trajet-card .meta { color: #4b5563; font-size: 0.9rem; margin-top: 4px; }
+  .btn-action { background: #f59e0b; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin: 2px; }
+  .btn-action.danger { background: #ef4444; } .btn-action.success { background: #10b981; } .btn-action.primary { background: #3b82f6; }
+  .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+  .statut-chauffeur { background: rgba(255,255,255,0.5); backdrop-filter: blur(8px); padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); }
+  .form-group { margin-bottom: 15px; }
+  .form-group label { display: block; font-weight: 600; margin-bottom: 4px; color: #1a365d; }
+  .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; font-size: 1rem; background: rgba(255,255,255,0.8); }
+  .form-row { display: flex; gap: 15px; flex-wrap: wrap; }
+  .form-row .form-group { flex: 1; min-width: 200px; }
+  .btn-enregistrer { background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: 0.2s; }
+  .btn-enregistrer:hover { background: #2563eb; }
+  .btn-enregistrer:disabled { background: #9ca3af; cursor: not-allowed; }
+  .checkbox-group { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+  .checkbox-group input { width: auto; }
+  footer { text-align: center; margin-top: 40px; padding: 20px; color: #4a5568; font-size: 0.9rem; border-top: 1px solid rgba(0,0,0,0.05); }
+
+  @media (max-width: 700px) {
+    #trajetsList, #mesTrajetsList { grid-template-columns: 1fr; }
+    .sidebar-pub { width: 100%; }
+    .container { flex-direction: column; }
+  }
+  #modalDecaler { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+  #modalDecaler > div { background: white; padding: 25px; border-radius: 20px; width: 450px; max-width: 90%; max-height: 90vh; overflow-y: auto; }
+  #modalDecaler h3 { margin-top: 0; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+  .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; }
+  .btn-confirm { background: #3b82f6; color: white; }
+  .btn-cancel { background: #6b7280; color: white; }
+  .current-info { background: #f3f4f6; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem; }
+</style>
+</head>
+<body>
+  <div class="blob1"></div>
+  <div class="blob2"></div>
+  <div class="blob3"></div>
+  <div class="container">
+    <div class="main-content">
+      <div class="header">
+        <div class="header-left">
+          <div class="logo-entreprise">
+            <div class="logo-icon">TC</div>
+            <div>
+              <span>📍 Dakar, Sénégal</span>
+              <span>📞 +221 77 123 45 67</span>
+            </div>
+          </div>
+          <div class="logo-site"><span class="brand">🚐 Trafic Clic</span></div>
+        </div>
+        <div class="header-right">
+          <div class="avatar-wrapper" id="avatarWrapper" onclick="toggleDropdown(event)">
+            <div class="avatar" id="avatarInitials"></div>
+            <span id="welcomeMessage" class="welcome-text"></span>
+            <span class="dropdown-arrow">▼</span>
+            <div class="dropdown-menu" id="dropdownMenu">
+              <button class="btn-logout" onclick="deconnexion()">🚪 Déconnexion</button>
+              <button class="btn-delete" onclick="supprimerCompte()">🗑️ Supprimer mon compte</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="pubHaut" class="pub-haut">📢 Chargement...</div>
+      <div id="statutChauffeur" class="statut-chauffeur">Chargement...</div>
+      <div class="nav-buttons">
+        <button class="nav-btn active" data-onglet="enregistrement">📝 Enregistrement</button>
+        <button class="nav-btn" data-onglet="trajets">🚌 Trajets disponibles</button>
+        <button class="nav-btn" data-onglet="attente">⏳ Clients en attente</button>
+        <button class="nav-btn" data-onglet="regles">📋 Règles</button>
+      </div>
+      <div id="contenuEnregistrement">
+        <div class="card">
+          <h2>📝 Enregistrer un trajet</h2>
+          <form id="formTrajet">
+            <div class="form-row">
+              <div class="form-group"><label>Région de départ</label><input type="text" id="enrDepart" placeholder="Ex: Dakar" required></div>
+              <div class="form-group"><label>Département d'arrivée</label><input type="text" id="enrArrivee" placeholder="Ex: Thiès" required></div>
+            </div>
+            <div class="form-group"><label>Point de départ précis</label><input type="text" id="enrPoint" placeholder="Ex: Gare routière de Dakar"></div>
+            <div class="form-group checkbox-group"><input type="checkbox" id="enrRamassage" value="1"><label for="enrRamassage">🚐 Ramassage porte à porte</label></div>
+            <div class="form-row">
+              <div class="form-group"><label>Date de départ</label><input type="date" id="enrDate" required></div>
+              <div class="form-group"><label>Heure de départ</label><input type="time" id="enrHeure" required></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Tarif par place (FCFA)</label><input type="number" id="enrTarif" placeholder="5000" required></div>
+              <div class="form-group"><label>Nombre total de places</label><input type="number" id="enrPlaces" placeholder="4" required></div>
+            </div>
+            <button type="submit" class="btn-enregistrer">✅ Enregistrer le trajet</button>
+            <div id="enrMessage" style="margin-top:15px;"></div>
+          </form>
+        </div>
+        <div class="card"><h2>🚗 Mes trajets enregistrés</h2><div id="mesTrajetsList">Chargement...</div></div>
+      </div>
+      <div id="contenuTrajets" style="display:none;"><div class="card" style="padding:0;background:transparent;backdrop-filter:none;border:none;box-shadow:none;"><div id="trajetsList">Chargement...</div></div></div>
+      <div id="contenuAttente" style="display:none;"><div class="card"><h2>⏳ Clients en attente</h2><div id="attenteListe">Chargement...</div></div></div>
+      <div id="contenuRegles" style="display:none;"><div class="card"><h2>📜 Règles</h2><ul><li>Confirmer 2h avant</li><li>Annulation jusqu'à 7h avant</li><li>5% de frais</li></ul></div></div>
+      <footer>&copy; 2026 Trafic Clic</footer>
+    </div>
+    <div class="sidebar-pub">
+      <div id="pubDroite1" class="pub-item">📢 Chargement...</div>
+      <div id="pubDroite2" class="pub-item">📢 Chargement...</div>
+      <div id="pubDroite3" class="pub-item">📢 Chargement...</div>
+    </div>
+  </div>
+
+  <div id="modalDecaler">
+    <div>
+      <h3>📅 Décaler le trajet</h3>
+      <input type="hidden" id="decalerId">
+      <div class="current-info"><strong>Actuellement :</strong><br>📅 <span id="decalerCurrentDate"></span><br>🕒 <span id="decalerCurrentHeure"></span><br>📍 <span id="decalerCurrentDepart"></span><br>🚐 <span id="decalerCurrentRamassage"></span></div>
+      <div class="form-group"><label>Nouvelle date</label><input type="date" id="decalerDate" required></div>
+      <div class="form-group"><label>Nouvelle heure</label><input type="time" id="decalerHeure" required></div>
+      <div class="form-group"><label>Nouveau point de départ</label><input type="text" id="decalerDepart" placeholder="Ex: Gare routière"></div>
+      <div class="form-group checkbox-group"><input type="checkbox" id="decalerRamassage" value="1"><label>🚐 Ramassage porte à porte</label></div>
+      <div id="decalerMessage" style="margin-top:10px;color:red;"></div>
+      <div class="modal-actions"><button class="btn-confirm" onclick="confirmerDecaler()">Confirmer</button><button class="btn-cancel" onclick="fermerDecaler()">Annuler</button></div>
+    </div>
+  </div>
+
+<script>
+async function loadPublicites() {
+  const emplacements = {
+    'haut': document.getElementById('pubHaut'),
+    'droite1': document.getElementById('pubDroite1'),
+    'droite2': document.getElementById('pubDroite2'),
+    'droite3': document.getElementById('pubDroite3')
+  };
+  try {
+    const res = await fetch('/api/admin/publicites');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const pubs = await res.json();
+    const now = new Date().toISOString().split('T')[0];
+    const actives = pubs.filter(p => p.actif === 1 && (!p.date_fin || p.date_fin >= now) && (!p.date_debut || p.date_debut <= now));
+    if (actives.length === 0) {
+      for (const id in emplacements) if (emplacements[id]) emplacements[id].innerHTML = '📢 Aucune publicité active.';
+      return;
+    }
+    actives.forEach(p => {
+      const el = emplacements[p.emplacement.toLowerCase()];
+      if (el) el.innerHTML = `<img src="${p.image_url}" alt="publicité" style="max-width:100%; border-radius:12px;">`;
+    });
+  } catch (e) {
+    console.error('Erreur publicités:', e);
+    for (const id in emplacements) if (emplacements[id]) emplacements[id].innerHTML = '❌ Erreur chargement.';
+  }
+}
+document.addEventListener('DOMContentLoaded', loadPublicites);
+
+const CHAUFFEUR_ID = 1;
+localStorage.setItem('chauffeur_id', CHAUFFEUR_ID);
+async function fetchAPI(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+function afficherBienvenue() {
+  const nom = localStorage.getItem('chauffeur_nom') || 'Chauffeur';
+  const avatar = document.getElementById('avatarInitials');
+  const message = document.getElementById('welcomeMessage');
+  const mots = nom.trim().split(/\s+/);
+  let initiales = '';
+  if (mots.length === 1) initiales = mots[0].substring(0,2).toUpperCase();
+  else initiales = mots.map(m => m.charAt(0).toUpperCase()).join('');
+  if (initiales.length > 3) initiales = initiales.substring(0,3);
+  avatar.textContent = initiales;
+  message.textContent = nom;
+}
+function toggleDropdown(e) { e.stopPropagation(); const wrapper = document.getElementById('avatarWrapper'); const menu = document.getElementById('dropdownMenu'); const isOpen = menu.classList.contains('show'); if (isOpen) { menu.classList.remove('show'); wrapper.classList.remove('open'); } else { menu.classList.add('show'); wrapper.classList.add('open'); } }
+document.addEventListener('click', function(e) { const wrapper = document.getElementById('avatarWrapper'); const menu = document.getElementById('dropdownMenu'); if (!wrapper.contains(e.target)) { menu.classList.remove('show'); wrapper.classList.remove('open'); } });
+function deconnexion() { if (confirm('Voulez-vous vraiment vous déconnecter ?')) { localStorage.removeItem('chauffeur_id'); localStorage.removeItem('chauffeur_nom'); window.location.href = '/'; } }
+async function supprimerCompte() {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement votre compte ? Cette action est irréversible.')) return;
+  const motDePasse = prompt('Entrez votre mot de passe pour confirmer la suppression :');
+  if (!motDePasse) return;
+  const chauffeur_id = localStorage.getItem('chauffeur_id');
+  if (!chauffeur_id) { alert('Vous n\'êtes pas connecté.'); return; }
+  try {
+    const res = await fetch('/api/chauffeur/supprimer', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mot_de_passe: motDePasse, chauffeur_id: chauffeur_id }) });
+    const data = await res.json();
+    if (res.ok) { alert('✅ Votre compte a été supprimé.'); localStorage.removeItem('chauffeur_id'); localStorage.removeItem('chauffeur_nom'); window.location.href = '/'; }
+    else { alert('❌ ' + (data.error || 'Erreur lors de la suppression.')); }
+  } catch(err) { alert('❌ Erreur réseau : ' + err.message); }
+}
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const o = this.dataset.onglet;
+    document.getElementById('contenuEnregistrement').style.display = o === 'enregistrement' ? 'block' : 'none';
+    document.getElementById('contenuTrajets').style.display = o === 'trajets' ? 'block' : 'none';
+    document.getElementById('contenuAttente').style.display = o === 'attente' ? 'block' : 'none';
+    document.getElementById('contenuRegles').style.display = o === 'regles' ? 'block' : 'none';
+    if (o === 'trajets') loadTrajets();
+    if (o === 'attente') loadAttente();
+    if (o === 'enregistrement') loadMesTrajets();
+  });
+});
+async function loadStatut() {
+  try {
+    const data = await fetchAPI('/api/chauffeur/' + CHAUFFEUR_ID);
+    const c = document.getElementById('statutChauffeur');
+    const btn = document.querySelector('#formTrajet button[type="submit"]');
+    let html = '';
+    if (data.bloque_until) {
+      const fin = new Date(data.bloque_until);
+      if (fin > new Date()) { html = '⛔ Censuré jusqu\'au ' + fin.toLocaleDateString(); btn.disabled = true; }
+      else { html = '✅ Actif – ' + (3 - (data.annulations_consecutives || 0)) + ' annulations restantes'; btn.disabled = false; }
+    } else { html = '✅ Actif – ' + (3 - (data.annulations_consecutives || 0)) + ' annulations restantes'; btn.disabled = false; }
+    c.innerHTML = html;
+  } catch(e) { document.getElementById('statutChauffeur').innerHTML = 'Erreur statut'; }
+}
+async function loadMesTrajets() {
+  try {
+    const data = await fetchAPI('/api/trajets/all');
+    const container = document.getElementById('mesTrajetsList');
+    const mesTrajets = data.filter(t => parseInt(t.chauffeur_id) === parseInt(CHAUFFEUR_ID));
+    if (!mesTrajets || mesTrajets.length === 0) { container.innerHTML = '<p>Vous n\'avez pas encore enregistré de trajet.</p>'; return; }
+    mesTrajets.sort((a,b) => new Date(b.date_depart) - new Date(a.date_depart));
+    container.innerHTML = mesTrajets.map(t => {
+      const places = t.places_restantes ?? 0;
+      const total = t.places_total ?? 0;
+      let statutCls = 'statut-actif', statutLabel = 'Actif';
+      if (t.statut === 'annule') { statutCls = 'statut-annule'; statutLabel = 'Annulé'; }
+      else if (t.statut === 'en_cours') { statutCls = 'statut-en_cours'; statutLabel = 'En cours'; }
+      else if (t.statut === 'termine') { statutCls = 'statut-termine'; statutLabel = 'Terminé'; }
+      else if (places === 0 && t.statut !== 'termine') { statutCls = 'statut-complet'; statutLabel = 'COMPLET'; }
+      const ramassage = t.ramassage ? '🚐 Porte à porte' : '📍 Point fixe';
+      const maintenant = new Date();
+      const depart = new Date(t.date_depart);
+      const diffMinutes = (depart - maintenant) / (1000 * 60);
+      let btnDepart = '', btnArrive = '';
+      if (t.statut === 'actif') {
+        const estActivable = (diffMinutes <= 20 && diffMinutes >= 0);
+        btnDepart = `<button class="btn-action primary" onclick="departTrajet(${t.id})" ${estActivable ? '' : 'disabled'}>🚀 Départ ${estActivable ? '' : '('+Math.round(diffMinutes)+' min)'}</button>`;
+      }
+      if (t.statut === 'en_cours') { btnArrive = `<button class="btn-action success" onclick="arriveTrajet(${t.id})">🏁 Arrivé</button>`; }
+      return `<div class="trajet-card" data-id="${t.id}"><div class="titre">${t.depart || '?'} → ${t.arrivee || '?'}</div><div><span class="statut ${statutCls}">${statutLabel}</span> <span style="font-size:0.8rem;color:#4b5563;">${ramassage}</span></div><div class="meta">📅 ${t.date_depart ? new Date(t.date_depart).toLocaleString() : 'Date inconnue'}</div><div class="meta">💰 ${t.tarif_par_place || 0} FCFA/place</div><div class="meta">🚗 Places : <strong>${places}</strong> / ${total}</div>${btnDepart || btnArrive ? '<div style="margin-top:6px;">'+btnDepart+btnArrive+'</div>' : ''}</div>`;
+    }).join('');
+  } catch(e) { document.getElementById('mesTrajetsList').innerHTML = '<p style="color:red;">❌ Erreur chargement.</p>'; }
+}
+async function loadTrajets() {
+  try {
+    const data = await fetchAPI('/api/trajets/all');
+    const container = document.getElementById('trajetsList');
+    if (!data || data.length === 0) { container.innerHTML = '<p>Aucun trajet disponible.</p>'; return; }
+    const sorted = data.sort((a, b) => {
+      const aMine = (parseInt(a.chauffeur_id) === parseInt(CHAUFFEUR_ID));
+      const bMine = (parseInt(b.chauffeur_id) === parseInt(CHAUFFEUR_ID));
+      if (aMine && !bMine) return -1;
+      if (!aMine && bMine) return 1;
+      return new Date(b.date_depart) - new Date(a.date_depart);
+    });
+    container.innerHTML = sorted.map(t => {
+      const places = t.places_restantes ?? 0;
+      const total = t.places_total ?? 0;
+      let statutCls = 'statut-actif', statutLabel = 'Actif';
+      if (t.statut === 'annule') { statutCls = 'statut-annule'; statutLabel = 'Annulé'; }
+      else if (t.statut === 'en_cours') { statutCls = 'statut-en_cours'; statutLabel = 'En cours'; }
+      else if (t.statut === 'termine') { statutCls = 'statut-termine'; statutLabel = 'Terminé'; }
+      else if (places === 0) { statutCls = 'statut-complet'; statutLabel = 'COMPLET'; }
+      const ramassage = t.ramassage ? '🚐 Porte à porte' : '📍 Point fixe';
+      const isMine = (parseInt(t.chauffeur_id) === parseInt(CHAUFFEUR_ID));
+      let actions = '';
+      if (isMine && (t.statut === 'actif' || t.statut === 'reporte')) {
+        actions = `<button class="btn-action" onclick="ouvrirDecaler(${t.id}, '${t.date_depart || ''}', '${t.depart || ''}', ${t.ramassage || 0})">🔄 Décaler</button><button class="btn-action danger" onclick="ouvrirAnnuler(${t.id})">❌ Annuler</button>`;
+      }
+      const badgeMien = isMine ? '<span style="background:#fbbf24;color:#1f2937;padding:2px 10px;border-radius:20px;font-size:0.7rem;font-weight:bold;margin-left:6px;">📌 Votre trajet</span>' : '';
+      return `<div class="trajet-card" data-id="${t.id}"><div class="titre">${t.depart || '?'} → ${t.arrivee || '?'} ${badgeMien}</div><div><span class="statut ${statutCls}">${statutLabel}</span> <span style="font-size:0.8rem;color:#4b5563;">${ramassage}</span></div><div class="meta">📅 ${t.date_depart ? new Date(t.date_depart).toLocaleString() : 'Date inconnue'}</div><div class="meta">💰 ${t.tarif_par_place || 0} FCFA/place</div><div class="meta">🚗 Places : <strong>${places}</strong> / ${total}</div>${actions ? '<div style="margin-top:6px;">'+actions+'</div>' : ''}</div>`;
+    }).join('');
+  } catch(e) { document.getElementById('trajetsList').innerHTML = '<p style="color:red;">❌ Erreur chargement.</p>'; }
+}
+async function loadAttente() {
+  try {
+    const data = await fetchAPI('/api/attente');
+    const c = document.getElementById('attenteListe');
+    if (!data || data.length === 0) { c.innerHTML = '<p>Aucune demande.</p>'; return; }
+    c.innerHTML = data.map(a => {
+      let dateFormatee = '?';
+      if (a.date_souhaitee) {
+        const d = new Date(a.date_souhaitee);
+        if (!isNaN(d)) {
+          const jour = String(d.getDate()).padStart(2,'0');
+          const mois = String(d.getMonth()+1).padStart(2,'0');
+          const annee = d.getFullYear();
+          dateFormatee = `${jour}/${mois}/${annee}`;
+        }
+      }
+      let heureFormatee = 'Non précisée';
+      if (a.heure_debut) { heureFormatee = a.heure_debut.substring(0,5); }
+      return `<div style="background:white;padding:15px;border-radius:8px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><strong>${a.nom || 'Anonyme'}</strong><br>📍 ${a.depart || ''} → ${a.arrivee || ''}<br>👥 ${a.nb_places || 1} place(s) – 🕒 ${heureFormatee} – 📅 ${dateFormatee}</div>`;
+    }).join('');
+  } catch(e) { c.innerHTML = '<p>Erreur chargement.</p>'; }
+}
+document.getElementById('formTrajet').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const depart = document.getElementById('enrDepart').value.trim();
+  const arrivee = document.getElementById('enrArrivee').value.trim();
+  const point = document.getElementById('enrPoint').value.trim();
+  const ramassage = document.getElementById('enrRamassage').checked ? 1 : 0;
+  const date = document.getElementById('enrDate').value;
+  const heure = document.getElementById('enrHeure').value;
+  const tarif = parseInt(document.getElementById('enrTarif').value);
+  const places = parseInt(document.getElementById('enrPlaces').value);
+  if (!depart || !arrivee || !date || !heure || !tarif || !places) { document.getElementById('enrMessage').innerHTML = '<span style="color:red;">Tous les champs sont obligatoires.</span>'; return; }
+  const date_depart = date + 'T' + heure + ':00';
+  let departFinal = depart;
+  if (point) departFinal = depart + ' - ' + point;
+  try {
+    const res = await fetchAPI('/api/trajets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chauffeur_id: CHAUFFEUR_ID, depart: departFinal, arrivee, date_depart, tarif_par_place: tarif, places_total: places, places_restantes: places, statut: 'actif', ramassage, caution: 0 }) });
+    document.getElementById('enrMessage').innerHTML = '<span style="color:green;">✅ Trajet enregistré ! ID: '+res.id+'</span>';
+    this.reset();
+    document.getElementById('enrRamassage').checked = false;
+    loadMesTrajets(); loadStatut();
+  } catch(err) { document.getElementById('enrMessage').innerHTML = '<span style="color:red;">Erreur : '+err.message+'</span>'; }
+});
+async function departTrajet(id) {
+  if (!confirm('Démarrer ce trajet ? La localisation sera activée.')) return;
+  try { await fetchAPI('/api/trajets/' + id + '/depart', { method: 'PUT' }); alert('✅ Trajet en cours, localisation activée.'); setTimeout(() => { loadMesTrajets(); loadTrajets(); }, 500); } catch(err) { alert('Erreur : ' + err.message); }
+}
+async function arriveTrajet(id) {
+  if (!confirm('Marquer ce trajet comme arrivé ?')) return;
+  try { await fetchAPI('/api/trajets/' + id + '/arrive', { method: 'PUT' }); alert('✅ Arrivée enregistrée.'); setTimeout(() => { loadMesTrajets(); loadTrajets(); }, 500); } catch(err) { alert('Erreur : ' + err.message); }
+}
+function ouvrirDecaler(id, dateDepart, depart, ramassage) {
+  document.getElementById('decalerId').value = id;
+  const d = dateDepart ? new Date(dateDepart) : null;
+  document.getElementById('decalerCurrentDate').textContent = d ? d.toLocaleDateString() : 'Non définie';
+  document.getElementById('decalerCurrentHeure').textContent = d ? d.toLocaleTimeString() : 'Non définie';
+  document.getElementById('decalerCurrentDepart').textContent = depart || 'Non défini';
+  document.getElementById('decalerCurrentRamassage').textContent = ramassage ? '🚐 Porte à porte' : '📍 Point fixe';
+  if (d) {
+    const year = d.getFullYear(), month = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    document.getElementById('decalerDate').value = `${year}-${month}-${day}`;
+    const hours = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    document.getElementById('decalerHeure').value = hours;
+  }
+  const parts = depart ? depart.split(' - ') : [];
+  document.getElementById('decalerDepart').value = parts.length > 1 ? parts.slice(1).join(' - ') : depart || '';
+  document.getElementById('decalerRamassage').checked = !!ramassage;
+  document.getElementById('decalerMessage').innerHTML = '';
+  document.getElementById('modalDecaler').style.display = 'flex';
+}
+function fermerDecaler() { document.getElementById('modalDecaler').style.display = 'none'; }
+async function confirmerDecaler() {
+  const id = document.getElementById('decalerId').value;
+  const date = document.getElementById('decalerDate').value;
+  const heure = document.getElementById('decalerHeure').value;
+  const nouveauDepart = document.getElementById('decalerDepart').value.trim();
+  const ramassage = document.getElementById('decalerRamassage').checked ? 1 : 0;
+  if (!date || !heure) { document.getElementById('decalerMessage').innerHTML = 'Veuillez saisir une date et une heure.'; return; }
+  const date_depart = date + 'T' + heure + ':00';
+  const card = document.querySelector(`.trajet-card[data-id="${id}"]`);
+  let departComplet = '';
+  if (card) {
+    const departActuel = card.dataset.depart || '';
+    const parts = departActuel.split(' - ');
+    const region = parts[0] || '';
+    departComplet = nouveauDepart ? region + ' - ' + nouveauDepart : region;
+  } else { departComplet = nouveauDepart || ''; }
+  const payload = { date_depart };
+  if (departComplet) payload.depart = departComplet;
+  payload.ramassage = ramassage;
+  try {
+    await fetchAPI('/api/trajets/' + id + '/decaler', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    document.getElementById('decalerMessage').innerHTML = '<span style="color:green;">✅ Trajet décalé !</span>';
+    setTimeout(() => { fermerDecaler(); loadTrajets(); loadMesTrajets(); }, 1200);
+  } catch(err) { document.getElementById('decalerMessage').innerHTML = '<span style="color:red;">Erreur : '+err.message+'</span>'; }
+}
+function ouvrirAnnuler(id) {
+  if (!confirm('Annuler ce trajet ?')) return;
+  fetchAPI('/api/trajets/' + id, { method: 'DELETE' })
+    .then(() => { alert('✅ Trajet annulé'); loadTrajets(); loadMesTrajets(); loadStatut(); })
+    .catch(err => alert('Erreur : '+err.message));
+}
+afficherBienvenue();
+loadStatut();
+loadMesTrajets();
+loadTrajets();
+setInterval(() => {
+  const actif = document.querySelector('.nav-btn.active');
+  if (actif && actif.dataset.onglet === 'enregistrement') loadMesTrajets();
+  if (actif && actif.dataset.onglet === 'trajets') loadTrajets();
+}, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+const express = require('express');
+const app = express();
+const port = 3000;
+const db = require('./db');
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// --- Vérification de censure ---
+function estCensure(chauffeur_id, callback) {
+  db.get('SELECT bloque_until FROM chauffeurs WHERE id = ?', [chauffeur_id], (err, row) => {
+    if (err) return callback(err, null);
+    if (!row || !row.bloque_until) return callback(null, false);
+    const now = new Date().toISOString();
+    if (row.bloque_until > now) {
+      return callback(null, true);
+    } else {
+      // La censure est expirée, on remet le compteur à 0
+      db.run('UPDATE chauffeurs SET annulations_consecutives = 0, bloque_until = NULL WHERE id = ?', [chauffeur_id]);
+      return callback(null, false);
+    }
+  });
+}
+
+// --- Trajets pour le client ---
+app.get('/api/trajets', (req, res) => {
+  db.all(`SELECT * FROM trajets WHERE date_depart > datetime('now')`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// --- Tous les trajets pour le chauffeur ---
+app.get('/api/trajets/all', (req, res) => {
+  db.all(`SELECT * FROM trajets ORDER BY date_depart DESC`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// --- Trajets d'un chauffeur spécifique ---
+app.get('/api/chauffeur/trajets/:chauffeur_id', (req, res) => {
+  const { chauffeur_id } = req.params;
+  db.all(
+    `SELECT * FROM trajets WHERE chauffeur_id = ? ORDER BY date_depart DESC`,
+    [chauffeur_id],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
+// --- Créer un trajet (avec vérification de censure) ---
+app.post('/api/trajets', (req, res) => {
+  const { chauffeur_id, depart, arrivee, date_depart, tarif_par_place, places_total, places_restantes, statut, ramassage, caution } = req.body;
+
+  // Vérifier la censure
+  estCensure(chauffeur_id, (err, censure) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (censure) {
+      return res.status(403).json({ error: 'Vous êtes censuré pour 45 jours (3 annulations consécutives). Impossible d\'enregistrer un nouveau trajet.' });
+    }
+
+    db.run(
+      `INSERT INTO trajets (chauffeur_id, depart, arrivee, date_depart, tarif_par_place, places_total, places_restantes, statut, ramassage, caution)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [chauffeur_id, depart, arrivee, date_depart, tarif_par_place, places_total, places_restantes, statut || 'actif', ramassage || 0, caution || 5000],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id: this.lastID });
+      }
+    );
+  });
+});
+
+// --- Modifier date/heure d'un trajet (décaler) ---
+app.put('/api/trajets/:id/decaler', (req, res) => {
+  const { id } = req.params;
+  const { date_depart } = req.body;
+  db.run(
+    `UPDATE trajets SET date_depart = ? WHERE id = ?`,
+    [date_depart, id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ updated: this.changes });
+    }
+  );
+});
+
+// --- Annuler un trajet (avec incrémentation du compteur d'annulations) ---
+app.delete('/api/trajets/:id', (req, res) => {
+  const { id } = req.params;
+
+  // Récupérer le trajet et le chauffeur_id
+  db.get('SELECT chauffeur_id FROM trajets WHERE id = ?', [id], (err, trajet) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!trajet) return res.status(404).json({ error: 'Trajet non trouvé' });
+
+    const chauffeur_id = trajet.chauffeur_id;
+
+    // Mettre à jour le trajet en 'annule'
+    db.run(`UPDATE trajets SET statut = 'annule' WHERE id = ?`, [id], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+
+      // Incrémenter le compteur d'annulations consécutives
+      db.run(
+        `UPDATE chauffeurs SET annulations_consecutives = annulations_consecutives + 1 WHERE id = ?`,
+        [chauffeur_id],
+        function(err) {
+          if (err) return res.status(500).json({ error: err.message });
+
+          // Vérifier si on atteint 3 annulations
+          db.get('SELECT annulations_consecutives FROM chauffeurs WHERE id = ?', [chauffeur_id], (err, row) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (row.annulations_consecutives >= 3) {
+              // Bloquer le chauffeur pour 45 jours
+              const now = new Date();
+              now.setDate(now.getDate() + 45);
+              const bloque_until = now.toISOString();
+              db.run(
+                `UPDATE chauffeurs SET bloque_until = ? WHERE id = ?`,
+                [bloque_until, chauffeur_id],
+                (err) => {
+                  if (err) return res.status(500).json({ error: err.message });
+                  res.json({ cancelled: true, censure: true, message: 'Vous avez annulé 3 trajets consécutivement. Vous êtes censuré pour 45 jours.' });
+                }
+              );
+            } else {
+              res.json({ cancelled: true, censure: false, message: 'Trajet annulé. Attention : ' + (3 - row.annulations_consecutives) + ' annulation(s) restantes avant censure.' });
+            }
+          });
+        }
+      );
+    });
+  });
+});
+
+// --- Marquer un trajet comme terminé (réinitialise le compteur d'annulations) ---
+app.put('/api/trajets/:id/termine', (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT chauffeur_id FROM trajets WHERE id = ?', [id], (err, trajet) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!trajet) return res.status(404).json({ error: 'Trajet non trouvé' });
+    db.run(`UPDATE trajets SET statut = 'termine' WHERE id = ?`, [id], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      // Réinitialiser le compteur d'annulations consécutives
+      db.run(
+        `UPDATE chauffeurs SET annulations_consecutives = 0 WHERE id = ?`,
+        [trajet.chauffeur_id],
+        (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ updated: true, message: 'Trajet terminé, compteur d\'annulations réinitialisé.' });
+        }
+      );
+    });
+  });
+});
+
+// --- Clients ---
+app.post('/api/clients', (req, res) => {
+  const { nom, telephone } = req.body;
+  if (!nom || !telephone) {
+    return res.status(400).json({ error: 'Nom et téléphone requis' });
+  }
+  db.get('SELECT * FROM clients WHERE telephone = ?', [telephone], (err, client) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (client) return res.json(client);
+    db.run('INSERT INTO clients (nom, telephone) VALUES (?, ?)', [nom, telephone], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, nom, telephone });
+    });
+  });
+});
+
+// --- Réservations ---
+app.post('/api/reservations', (req, res) => {
+  const { client_id, trajet_id, nb_places, montant_total } = req.body;
+  if (!client_id || !trajet_id || !nb_places || !montant_total) {
+    return res.status(400).json({ error: 'Champs requis' });
+  }
+
+  db.get('SELECT places_restantes FROM trajets WHERE id = ?', [trajet_id], (err, trajet) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!trajet) return res.status(404).json({ error: 'Trajet non trouvé' });
+    if (trajet.places_restantes < nb_places) {
+      return res.status(400).json({ error: 'Places insuffisantes' });
+    }
+
+    db.run('BEGIN TRANSACTION');
+    db.run(
+      `INSERT INTO reservations (client_id, trajet_id, nb_places, montant_total, statut)
+       VALUES (?, ?, ?, ?, 'confirmee')`,
+      [client_id, trajet_id, nb_places, montant_total],
+      function(err) {
+        if (err) { db.run('ROLLBACK'); return res.status(500).json({ error: err.message }); }
+        const reservationId = this.lastID;
+
+        db.run(
+          `UPDATE trajets SET places_restantes = places_restantes - ? WHERE id = ?`,
+          [nb_places, trajet_id],
+          (err) => {
+            if (err) { db.run('ROLLBACK'); return res.status(500).json({ error: err.message }); }
+            db.run('COMMIT');
+            db.get('SELECT places_restantes FROM trajets WHERE id = ?', [trajet_id], (err, updated) => {
+              if (err) return res.status(500).json({ error: err.message });
+              res.json({
+                id: reservationId,
+                message: 'Réservation OK',
+                places_restantes: updated ? updated.places_restantes : 0
+              });
+            });
+          }
+        );
+      }
+    );
+  });
+});
+
+// --- Demande en attente (POST) ---
+app.post('/api/attente', (req, res) => {
+  const { client_id, depart, arrivee, heure_debut, date_souhaitee, nb_places } = req.body;
+  if (!client_id || !depart || !arrivee || !date_souhaitee) {
+    return res.status(400).json({ error: 'Champs requis' });
+  }
+
+  db.run(
+    `INSERT INTO attente 
+     (client_id, depart, arrivee, heure_debut, date_souhaitee, nb_places, actif)
+     VALUES (?, ?, ?, ?, ?, ?, 1)`,
+    [client_id, depart, arrivee, heure_debut || null, date_souhaitee, nb_places || 1],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, message: 'Demande ajoutée' });
+    }
+  );
+});
+
+// --- Liste des demandes en attente (GET) ---
+app.get('/api/attente', (req, res) => {
+  db.all(
+    `SELECT a.*, c.nom, c.telephone 
+     FROM attente a 
+     JOIN clients c ON a.client_id = c.id 
+     WHERE a.actif = 1`,
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
+// --- Gestion par téléphone ---
+app.get('/api/attente/telephone/:tel', (req, res) => {
+  const tel = req.params.tel;
+  db.get(
+    `SELECT a.*, c.nom, c.telephone 
+     FROM attente a 
+     JOIN clients c ON a.client_id = c.id 
+     WHERE c.telephone = ? AND a.actif = 1`,
+    [tel],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: 'Aucune demande active pour ce numéro' });
+      res.json(row);
+    }
+  );
+});
+
+app.put('/api/attente/:id', (req, res) => {
+  const { id } = req.params;
+  const { heure_debut, date_souhaitee, nb_places } = req.body;
+  db.run(
+    `UPDATE attente SET heure_debut = ?, date_souhaitee = ?, nb_places = ? WHERE id = ?`,
+    [heure_debut, date_souhaitee, nb_places, id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ updated: this.changes });
+    }
+  );
+});
+
+app.delete('/api/attente/:id', (req, res) => {
+  const { id } = req.params;
+  db.run(
+    `UPDATE attente SET actif = 0 WHERE id = ?`,
+    [id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ cancelled: this.changes });
+    }
+  );
+});
+
+// --- Publicités (simulées) ---
+app.get('/api/admin/publicites', (req, res) => {
+  res.json([]);
+});
+
+// --- Informations chauffeur (statut, censure, annulations) ---
+app.get('/api/chauffeur/:id', (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT annulations_consecutives, bloque_until FROM chauffeurs WHERE id = ?', [id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Chauffeur non trouvé' });
+    res.json(row);
+  });
+});
+
+// --- Lancement du serveur ---
+app.listen(port, () => {
+  console.log(`Serveur démarré sur http://localhost:${port}`);
+});

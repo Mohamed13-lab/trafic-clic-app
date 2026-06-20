@@ -1,0 +1,16 @@
+{
+  "Dakar": ["Dakar", "Guédiawaye", "Pikine", "Rufisque"],
+  "Thiès": ["Thiès", "Mbour", "Tivaouane"],
+  "Saint-Louis": ["Saint-Louis", "Dagana", "Podor"],
+  "Ziguinchor": ["Ziguinchor", "Bignona", "Oussouye"],
+  "Diourbel": ["Diourbel", "Bambey", "Mbacké"],
+  "Fatick": ["Fatick", "Foundiougne", "Gossas"],
+  "Kaolack": ["Kaolack", "Nioro du Rip", "Guinguinéo"],
+  "Kolda": ["Kolda", "Vélingara", "Médina Yoro Foulah"],
+  "Louga": ["Louga", "Kébémer", "Linguère"],
+  "Matam": ["Matam", "Kanel", "Ranérou"],
+  "Sédhiou": ["Sédhiou", "Bounkiling", "Goudomp"],
+  "Tambacounda": ["Tambacounda", "Bakel", "Koumpentoum"],
+  "Kédougou": ["Kédougou", "Salémata", "Saraya"],
+  "Kaffrine": ["Kaffrine", "Birkelane", "Koungheul"]
+}

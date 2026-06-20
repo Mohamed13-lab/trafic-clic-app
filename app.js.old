@@ -1,0 +1,125 @@
+const express = require('express');
+const app = express();
+const port = 3000;
+const db = require('./db');
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
+
+// --- Liste des trajets ---
+app.get('/api/trajets', (req, res) => {
+  db.all(`SELECT * FROM trajets WHERE date_depart > datetime('now')`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// --- Clients (création ou récupération) ---
+app.post('/api/clients', (req, res) => {
+  const { nom, telephone } = req.body;
+  if (!nom || !telephone) {
+    return res.status(400).json({ error: 'Nom et téléphone requis' });
+  }
+  db.get('SELECT * FROM clients WHERE telephone = ?', [telephone], (err, client) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (client) return res.json(client);
+    db.run('INSERT INTO clients (nom, telephone) VALUES (?, ?)', [nom, telephone], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, nom, telephone });
+    });
+  });
+});
+
+// --- Réservations (avec mise à jour des places) ---
+app.post('/api/reservations', (req, res) => {
+  const { client_id, trajet_id, nb_places, montant_total } = req.body;
+  if (!client_id || !trajet_id || !nb_places || !montant_total) {
+    return res.status(400).json({ error: 'Champs requis' });
+  }
+
+  db.get('SELECT places_restantes FROM trajets WHERE id = ?', [trajet_id], (err, trajet) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!trajet) return res.status(404).json({ error: 'Trajet non trouvé' });
+    if (trajet.places_restantes < nb_places) {
+      return res.status(400).json({ error: 'Places insuffisantes' });
+    }
+
+    db.run('BEGIN TRANSACTION');
+    db.run(
+      `INSERT INTO reservations (client_id, trajet_id, nb_places, montant_total, statut)
+       VALUES (?, ?, ?, ?, 'confirmee')`,
+      [client_id, trajet_id, nb_places, montant_total],
+      function(err) {
+        if (err) { db.run('ROLLBACK'); return res.status(500).json({ error: err.message }); }
+        const reservationId = this.lastID;
+
+        db.run(
+          `UPDATE trajets SET places_restantes = places_restantes - ? WHERE id = ?`,
+          [nb_places, trajet_id],
+          (err) => {
+            if (err) { db.run('ROLLBACK'); return res.status(500).json({ error: err.message }); }
+            db.run('COMMIT');
+            db.get('SELECT places_restantes FROM trajets WHERE id = ?', [trajet_id], (err, updated) => {
+              if (err) return res.status(500).json({ error: err.message });
+              res.json({
+                id: reservationId,
+                message: 'Réservation OK',
+                places_restantes: updated ? updated.places_restantes : 0
+              });
+            });
+          }
+        );
+      }
+    );
+  });
+});
+
+app.listen(port, () => {
+  console.log(`Serveur démarré sur http://localhost:${port}`);
+});
+
+// --- Publicités (simulées) ---
+app.get('/api/admin/publicites', (req, res) => {
+  // Pour l'instant, on renvoie un tableau vide
+  // Plus tard, on pourra stocker en base
+  res.json([]);
+});
+
+    `INSERT INTO attente (client_id, depart, arrivee, type_vehicule, heure_debut, date_souhaitee, actif)
+     VALUES (?, ?, ?, ?, ?, ?, 1)`,
+    [client_id, depart, arrivee, type_vehicule, heure_debut, date_souhaitee],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, message: 'Demande ajoutée' });
+    }
+
+app.get('/api/attente', (req, res) => {
+  db.all(`SELECT a.*, c.nom, c.telephone FROM attente a JOIN clients c ON a.client_id = c.id WHERE a.actif = 1`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/attente', (req, res) => {
+  const { client_id, depart, arrivee, type_vehicule, heure_debut, date_souhaitee, heure_souhaitee, nb_places } = req.body;
+  if (!client_id || !depart || !arrivee || !date_souhaitee) {
+    return res.status(400).json({ error: 'Champs requis' });
+  }
+  db.run(
+    `INSERT INTO attente (client_id, depart, arrivee, type_vehicule, heure_debut, date_souhaitee, heure_souhaitee, nb_places, actif)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [client_id, depart, arrivee, type_vehicule || (nb_places ? nb_places + ' places' : ''), heure_debut, date_souhaitee, heure_souhaitee || null, nb_places || 0],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, message: 'Demande ajoutée' });
+    }
+  );
+});
+
+app.get('/api/attente', (req, res) => {
+  db.all(`SELECT a.*, c.nom, c.telephone FROM attente a JOIN clients c ON a.client_id = c.id WHERE a.actif = 1`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Trafic Clic - Chauffeur</title>
+<style>
+  /* (styles inchangés, tu peux garder les précédents) */
+  body { font-family: sans-serif; padding: 20px; background: #f3f4f6; margin: 0; }
+  .container { max-width: 1400px; margin: auto; }
+  .header { display: flex; align-items: center; gap: 20px; background: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .logo-entreprise { display: flex; flex-direction: column; align-items: flex-start; }
+  .logo-entreprise img { height: 40px; }
+  .logo-entreprise span { font-size: 0.8rem; color: #4b5563; }
+  .logo-site { flex: 1; text-align: center; }
+  .logo-site img { height: 60px; max-height: 80px; }
+  .pub-haut { background: #e5e7eb; padding: 30px 20px; min-height: 120px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
+  .nav-buttons { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+  .nav-btn { padding: 14px 35px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1.2rem; background: #e5e7eb; color: #1f2937; }
+  .nav-btn.active { background: #fbbf24; color: #1f2937; }
+  .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+  .card h2 { margin-top: 0; }
+  #trajetsList, #mesTrajetsList {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
+  .trajet-card {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    text-align: center;
+    font-size: 0.95rem;
+    border-left: 4px solid #10b981;
+  }
+  .trajet-card .titre { font-weight: bold; font-size: 1.1rem; }
+  .trajet-card .statut { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; color: white; }
+  .statut-actif { background: #10b981; }
+  .statut-annule { background: #6b7280; }
+  .statut-complet { background: #ef4444; }
+  .statut-en_cours { background: #f59e0b; }
+  .statut-termine { background: #3b82f6; }
+  .statut-archive { background: #9ca3af; }
+  .trajet-card .meta { color: #4b5563; font-size: 0.9rem; margin-top: 4px; }
+  .btn-action { background: #f59e0b; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin: 2px; }
+  .btn-action.danger { background: #ef4444; }
+  .btn-action.success { background: #10b981; }
+  .btn-action.primary { background: #3b82f6; }
+  .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+  .statut-chauffeur { background: #f3f4f6; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold; }
+  .form-group { margin-bottom: 15px; }
+  .form-group label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+  .form-row { display: flex; gap: 15px; flex-wrap: wrap; }
+  .form-row .form-group { flex: 1; min-width: 200px; }
+  .btn-enregistrer { background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+  .btn-enregistrer:hover { background: #2563eb; }
+  .btn-enregistrer:disabled { background: #9ca3af; cursor: not-allowed; }
+  .checkbox-group { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+  .checkbox-group input { width: auto; }
+  footer { text-align: center; margin-top: 40px; padding: 20px; color: #9ca3af; font-size: 0.9rem; border-top: 1px solid #e5e7eb; }
+  @media (max-width: 700px) {
+    #trajetsList, #mesTrajetsList { grid-template-columns: 1fr; }
+  }
+  /* Modale */
+  .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; }
+  .modal > div { background: white; padding: 25px; border-radius: 12px; width: 450px; max-width: 90%; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { margin-top: 0; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+  .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+  .btn-confirm { background: #3b82f6; color: white; }
+  .btn-cancel { background: #6b7280; color: white; }
+  .current-info { background: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.95rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo-entreprise">
+      <img src="https://via.placeholder.com/40x40/3b82f6/ffffff?text=JB" alt="Logo">
+      <span>📍 Dakar, Sénégal</span>
+      <span>📞 +221 77 123 45 67</span>
+    </div>
+    <div class="logo-site">
+      <img src="https://via.placeholder.com/120x60/10b981/ffffff?text=Trafic+Clic" alt="Trafic Clic">
+    </div>
+  </div>
+
+  <div class="pub-haut">PUBLICITÉ (haut)</div>
+
+  <div id="statutChauffeur" class="statut-chauffeur">Chargement...</div>
+
+  <div class="nav-buttons">
+    <button class="nav-btn active" data-onglet="enregistrement">📝 Enregistrement</button>
+    <button class="nav-btn" data-onglet="trajets">🚌 Trajets disponibles</button>
+    <button class="nav-btn" data-onglet="attente">⏳ Clients en attente</button>
+    <button class="nav-btn" data-onglet="regles">📋 Règles</button>
+  </div>
+
+  <div id="contenuEnregistrement">
+    <div class="card">
+      <h2>📝 Enregistrer un trajet</h2>
+      <form id="formTrajet">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Région de départ</label>
+            <input type="text" id="enrDepart" placeholder="Ex: Dakar" required>
+          </div>
+          <div class="form-group">
+            <label>Département d'arrivée</label>
+            <input type="text" id="enrArrivee" placeholder="Ex: Thiès" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Point de départ précis</label>
+          <input type="text" id="enrPoint" placeholder="Ex: Gare routière de Dakar">
+        </div>
+        <div class="form-group checkbox-group">
+          <input type="checkbox" id="enrRamassage" value="1">
+          <label for="enrRamassage">🚐 Ramassage porte à porte</label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date de départ</label>
+            <input type="date" id="enrDate" required>
+          </div>
+          <div class="form-group">
+            <label>Heure de départ</label>
+            <input type="time" id="enrHeure" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tarif par place (FCFA)</label>
+            <input type="number" id="enrTarif" placeholder="5000" required>
+          </div>
+          <div class="form-group">
+            <label>Nombre total de places</label>
+            <input type="number" id="enrPlaces" placeholder="4" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-enregistrer">✅ Enregistrer le trajet</button>
+        <div id="enrMessage" style="margin-top:15px;"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>🚗 Mes trajets enregistrés</h2>
+      <div id="mesTrajetsList">Chargement...</div>
+    </div>
+  </div>
+
+  <div id="contenuTrajets" style="display:none;">
+    <div class="card" style="padding:0;background:transparent;box-shadow:none;">
+      <div id="trajetsList">Chargement...</div>
+    </div>
+  </div>
+
+  <div id="contenuAttente" style="display:none;">
+    <div class="card">
+      <h2>⏳ Clients en attente</h2>
+      <div id="attenteListe">Chargement...</div>
+    </div>
+  </div>
+
+  <div id="contenuRegles" style="display:none;">
+    <div class="card">
+      <h2>📜 Règles</h2>
+      <ul><li>Confirmer 2h avant</li><li>Annulation jusqu'à 7h avant</li><li>5% de frais</li></ul>
+    </div>
+  </div>
+
+  <!-- MODALE DECALER -->
+  <div id="modalDecaler" style="display:none;">
+    <div>
+      <h3>📅 Décaler le trajet</h3>
+      <input type="hidden" id="decalerId">
+      <div class="current-info">
+        <strong>Actuellement :</strong><br>
+        📅 <span id="decalerCurrentDate"></span><br>
+        🕒 <span id="decalerCurrentHeure"></span><br>
+        📍 <span id="decalerCurrentDepart"></span><br>
+        🚐 <span id="decalerCurrentRamassage"></span>
+      </div>
+      <div class="form-group">
+        <label>Nouvelle date</label>
+        <input type="date" id="decalerDate" required>
+      </div>
+      <div class="form-group">
+        <label>Nouvelle heure</label>
+        <input type="time" id="decalerHeure" required>
+      </div>
+      <div class="form-group">
+        <label>Nouveau point de départ</label>
+        <input type="text" id="decalerDepart" placeholder="Ex: Gare routière">
+      </div>
+      <div class="form-group checkbox-group">
+        <input type="checkbox" id="decalerRamassage" value="1">
+        <label>🚐 Ramassage porte à porte</label>
+      </div>
+      <div id="decalerMessage" style="margin-top:10px;color:red;"></div>
+      <div class="modal-actions">
+        <button class="btn-confirm" onclick="confirmerDecaler()">Confirmer</button>
+        <button class="btn-cancel" onclick="fermerDecaler()">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>&copy; 2026 Trafic Clic</footer>
+</div>
+
+<script>
+const CHAUFFEUR_ID = 1;
+
+async function fetchAPI(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// ====== NAVIGATION ======
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const o = this.dataset.onglet;
+    document.getElementById('contenuEnregistrement').style.display = o === 'enregistrement' ? 'block' : 'none';
+    document.getElementById('contenuTrajets').style.display = o === 'trajets' ? 'block' : 'none';
+    document.getElementById('contenuAttente').style.display = o === 'attente' ? 'block' : 'none';
+    document.getElementById('contenuRegles').style.display = o === 'regles' ? 'block' : 'none';
+    if (o === 'trajets') loadTrajets();
+    if (o === 'attente') loadAttente();
+    if (o === 'enregistrement') loadMesTrajets();
+  });
+});
+
+// ====== STATUT ======
+async function loadStatut() {
+  try {
+    const data = await fetchAPI('/api/chauffeur/' + CHAUFFEUR_ID);
+    const c = document.getElementById('statutChauffeur');
+    const btn = document.querySelector('#formTrajet button[type="submit"]');
+    let html = '';
+    if (data.bloque_until) {
+      const fin = new Date(data.bloque_until);
+      if (fin > new Date()) {
+        html = '⛔ Censuré jusqu\'au ' + fin.toLocaleDateString();
+        btn.disabled = true;
+      } else {
+        html = '✅ Actif – ' + (3 - (data.annulations_consecutives || 0)) + ' annulations restantes';
+        btn.disabled = false;
+      }
+    } else {
+      html = '✅ Actif – ' + (3 - (data.annulations_consecutives || 0)) + ' annulations restantes';
+      btn.disabled = false;
+    }
+    c.innerHTML = html;
+  } catch(e) { document.getElementById('statutChauffeur').innerHTML = 'Erreur statut'; }
+}
+
+// ====== NETTOYAGE (suppression 5h après arrivée) ======
+async function nettoyerTrajets() {
+  try {
+    await fetchAPI('/api/trajets/cleanup', { method: 'POST' });
+  } catch(e) { console.warn('Nettoyage échoué :', e); }
+}
+
+// ====== MES TRAJETS (avec filtre 'archive' exclu) ======
+async function loadMesTrajets() {
+  try {
+    const data = await fetchAPI('/api/trajets/all');
+    const container = document.getElementById('mesTrajetsList');
+    // Filtrer les trajets du chauffeur et exclure ceux avec statut 'archive'
+    const mesTrajets = data.filter(t => 
+      parseInt(t.chauffeur_id) === parseInt(CHAUFFEUR_ID) && t.statut !== 'archive'
+    );
+    if (!mesTrajets || mesTrajets.length === 0) {
+      container.innerHTML = '<p>Vous n\'avez pas encore enregistré de trajet.</p>';
+      return;
+    }
+    mesTrajets.sort((a,b) => new Date(b.date_depart) - new Date(a.date_depart));
+    container.innerHTML = mesTrajets.map(t => {
+      const places = t.places_restantes ?? 0;
+      const total = t.places_total ?? 0;
+      let statutCls = 'statut-actif', statutLabel = 'Actif';
+      if (t.statut === 'annule') { statutCls = 'statut-annule'; statutLabel = 'Annulé'; }
+      else if (t.statut === 'en_cours') { statutCls = 'statut-en_cours'; statutLabel = 'En cours'; }
+      else if (t.statut === 'termine') { statutCls = 'statut-termine'; statutLabel = 'Terminé'; }
+      else if (places === 0 && t.statut !== 'termine') { statutCls = 'statut-complet'; statutLabel = 'COMPLET'; }
+      const ramassage = t.ramassage ? '🚐 Porte à porte' : '📍 Point fixe';
+
+      const maintenant = new Date();
+      const depart = new Date(t.date_depart);
+      const diffMinutes = (depart - maintenant) / (1000 * 60);
+      let btnDepart = '', btnArrive = '', btnPaiement = '';
+      if (t.statut === 'actif') {
+        const estActivable = (diffMinutes <= 20 && diffMinutes >= 0);
+        btnDepart = `<button class="btn-action primary" onclick="departTrajet(${t.id})" ${estActivable ? '' : 'disabled'}>
+          🚀 Départ ${estActivable ? '' : '('+Math.round(diffMinutes)+' min)'}
+        </button>`;
+      }
+      if (t.statut === 'en_cours') {
+        btnArrive = `<button class="btn-action success" onclick="arriveTrajet(${t.id})">🏁 Arrivé</button>`;
+      }
+      if (t.statut === 'termine' && t.localisation_valide === 0) {
+        btnPaiement = `<button class="btn-action primary" onclick="confirmerLocalisation(${t.id})">📍 Confirmer arrivée</button>`;
+      }
+      if (t.statut === 'termine' && t.paiement_effectue === 1) {
+        btnPaiement = `<span style="color:#10b981;">✅ Paiement effectué</span>`;
+      }
+
+      return `
+        <div class="trajet-card" data-id="${t.id}">
+          <div class="titre">${t.depart || '?'} → ${t.arrivee || '?'}</div>
+          <div><span class="statut ${statutCls}">${statutLabel}</span> <span style="font-size:0.8rem;color:#4b5563;">${ramassage}</span></div>
+          <div class="meta">📅 ${t.date_depart ? new Date(t.date_depart).toLocaleString() : 'Date inconnue'}</div>
+          <div class="meta">💰 ${t.tarif_par_place || 0} FCFA/place</div>
+          <div class="meta">🚗 Places : <strong>${places}</strong> / ${total}</div>
+          ${btnDepart || btnArrive || btnPaiement ? '<div style="margin-top:6px;">'+btnDepart+btnArrive+btnPaiement+'</div>' : ''}
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    document.getElementById('mesTrajetsList').innerHTML = '<p style="color:red;">❌ Erreur chargement.</p>';
+  }
+}
+
+// ====== TRAJETS DISPONIBLES (tous sauf 'archive') ======
+async function loadTrajets() {
+  try {
+    const data = await fetchAPI('/api/trajets/all');
+    const container = document.getElementById('trajetsList');
+    const filtres = data.filter(t => t.statut !== 'archive');
+    if (!filtres || filtres.length === 0) {
+      container.innerHTML = '<p>Aucun trajet disponible.</p>';
+      return;
+    }
+    const sorted = filtres.sort((a, b) => {
+      const aMine = (parseInt(a.chauffeur_id) === parseInt(CHAUFFEUR_ID));
+      const bMine = (parseInt(b.chauffeur_id) === parseInt(CHAUFFEUR_ID));
+      if (aMine && !bMine) return -1;
+      if (!aMine && bMine) return 1;
+      return new Date(b.date_depart) - new Date(a.date_depart);
+    });
+    container.innerHTML = sorted.map(t => {
+      const places = t.places_restantes ?? 0;
+      const total = t.places_total ?? 0;
+      let statutCls = 'statut-actif', statutLabel = 'Actif';
+      if (t.statut === 'annule') { statutCls = 'statut-annule'; statutLabel = 'Annulé'; }
+      else if (t.statut === 'en_cours') { statutCls = 'statut-en_cours'; statutLabel = 'En cours'; }
+      else if (t.statut === 'termine') { statutCls = 'statut-termine'; statutLabel = 'Terminé'; }
+      else if (places === 0) { statutCls = 'statut-complet'; statutLabel = 'COMPLET'; }
+      const ramassage = t.ramassage ? '🚐 Porte à porte' : '📍 Point fixe';
+      const isMine = (parseInt(t.chauffeur_id) === parseInt(CHAUFFEUR_ID));
+      let actions = '';
+      if (isMine && (t.statut === 'actif' || t.statut === 'reporte')) {
+        actions = `
+          <button class="btn-action" onclick="ouvrirDecaler(${t.id}, '${t.date_depart || ''}', '${t.depart || ''}', ${t.ramassage || 0})">🔄 Décaler</button>
+          <button class="btn-action danger" onclick="ouvrirAnnuler(${t.id})">❌ Annuler</button>
+        `;
+      }
+      const badgeMien = isMine ? '<span style="background:#fbbf24;color:#1f2937;padding:2px 10px;border-radius:20px;font-size:0.7rem;font-weight:bold;margin-left:6px;">📌 Votre trajet</span>' : '';
+      return `
+        <div class="trajet-card" data-id="${t.id}">
+          <div class="titre">${t.depart || '?'} → ${t.arrivee || '?'} ${badgeMien}</div>
+          <div><span class="statut ${statutCls}">${statutLabel}</span> <span style="font-size:0.8rem;color:#4b5563;">${ramassage}</span></div>
+          <div class="meta">📅 ${t.date_depart ? new Date(t.date_depart).toLocaleString() : 'Date inconnue'}</div>
+          <div class="meta">💰 ${t.tarif_par_place || 0} FCFA/place</div>
+          <div class="meta">🚗 Places : <strong>${places}</strong> / ${total}</div>
+          ${actions ? '<div style="margin-top:6px;">'+actions+'</div>' : ''}
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    document.getElementById('trajetsList').innerHTML = '<p style="color:red;">❌ Erreur chargement.</p>';
+  }
+}
+
+// ====== ATTENTE ======
+async function loadAttente() {
+  try {
+    const data = await fetchAPI('/api/attente');
+    const c = document.getElementById('attenteListe');
+    if (!data || data.length === 0) { c.innerHTML = '<p>Aucune demande.</p>'; return; }
+    c.innerHTML = data.map(a => {
+      let dateFormatee = '?';
+      if (a.date_souhaitee) {
+        const d = new Date(a.date_souhaitee);
+        if (!isNaN(d)) {
+          const jour = String(d.getDate()).padStart(2,'0');
+          const mois = String(d.getMonth()+1).padStart(2,'0');
+          const annee = d.getFullYear();
+          dateFormatee = `${jour}/${mois}/${annee}`;
+        }
+      }
+      let heureFormatee = 'Non précisée';
+      if (a.heure_debut) { heureFormatee = a.heure_debut.substring(0,5); }
+      return `
+        <div style="background:white;padding:15px;border-radius:8px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+          <strong>${a.nom || 'Anonyme'}</strong><br>
+          📍 ${a.depart || ''} → ${a.arrivee || ''}<br>
+          👥 ${a.nb_places || 1} place(s) – 🕒 ${heureFormatee} – 📅 ${dateFormatee}
+        </div>
+      `;
+    }).join('');
+  } catch(e) { c.innerHTML = '<p>Erreur chargement.</p>'; }
+}
+
+// ====== ENREGISTREMENT ======
+document.getElementById('formTrajet').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const depart = document.getElementById('enrDepart').value.trim();
+  const arrivee = document.getElementById('enrArrivee').value.trim();
+  const point = document.getElementById('enrPoint').value.trim();
+  const ramassage = document.getElementById('enrRamassage').checked ? 1 : 0;
+  const date = document.getElementById('enrDate').value;
+  const heure = document.getElementById('enrHeure').value;
+  const tarif = parseInt(document.getElementById('enrTarif').value);
+  const places = parseInt(document.getElementById('enrPlaces').value);
+  if (!depart || !arrivee || !date || !heure || !tarif || !places) {
+    document.getElementById('enrMessage').innerHTML = '<span style="color:red;">Tous les champs sont obligatoires.</span>';
+    return;
+  }
+  const date_depart = date + 'T' + heure + ':00';
+  let departFinal = depart;
+  if (point) departFinal = depart + ' - ' + point;
+  try {
+    const res = await fetchAPI('/api/trajets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chauffeur_id: CHAUFFEUR_ID,
+        depart: departFinal,
+        arrivee,
+        date_depart,
+        tarif_par_place: tarif,
+        places_total: places,
+        places_restantes: places,
+        statut: 'actif',
+        ramassage,
+        caution: 0
+      })
+    });
+    document.getElementById('enrMessage').innerHTML = '<span style="color:green;">✅ Trajet enregistré ! ID: '+res.id+'</span>';
+    this.reset();
+    document.getElementById('enrRamassage').checked = false;
+    loadMesTrajets();
+    loadStatut();
+  } catch(err) {
+    document.getElementById('enrMessage').innerHTML = '<span style="color:red;">Erreur : '+err.message+'</span>';
+  }
+});
+
+// ====== DÉPART ======
+async function departTrajet(id) {
+  if (!confirm('Démarrer ce trajet ? La localisation sera activée.')) return;
+  try {
+    await fetchAPI('/api/trajets/' + id + '/depart', { method: 'PUT' });
+    alert('✅ Trajet en cours, localisation activée.');
+    setTimeout(() => { loadMesTrajets(); loadTrajets(); }, 500);
+  } catch(err) {
+    alert('Erreur : ' + err.message);
+  }
+}
+
+// ====== ARRIVÉ (enregistre l'heure) ======
+async function arriveTrajet(id) {
+  if (!confirm('Marquer ce trajet comme arrivé ? Les transactions seront automatiques après validation de la localisation.')) return;
+  try {
+    await fetchAPI('/api/trajets/' + id + '/arrive', { method: 'PUT' });
+    alert('✅ Arrivée enregistrée. Vous pouvez maintenant confirmer votre localisation pour déclencher le paiement.');
+    setTimeout(() => { loadMesTrajets(); loadTrajets(); }, 500);
+  } catch(err) {
+    alert('Erreur : ' + err.message);
+  }
+}
+
+// ====== CONFIRMER LOCALISATION (simulation) ======
+async function confirmerLocalisation(id) {
+  // Dans une vraie app, on récupérerait les coordonnées GPS
+  const lat = 14.7167; // coordonnées factices (Dakar)
+  const lng = -17.4677;
+  if (!confirm('Confirmer que vous êtes bien arrivé dans le département de destination ? Le paiement sera déclenché.')) return;
+  try {
+    await fetchAPI('/api/trajets/' + id + '/confirm-location', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lng })
+    });
+    alert('✅ Localisation confirmée. Le paiement sera automatique.');
+    setTimeout(() => { loadMesTrajets(); loadTrajets(); }, 500);
+  } catch(err) {
+    alert('Erreur : ' + err.message);
+  }
+}
+
+// ====== DÉCALER ======
+function ouvrirDecaler(id, dateDepart, depart, ramassage) { /* inchangé */ }
+function fermerDecaler() { document.getElementById('modalDecaler').style.display = 'none'; }
+async function confirmerDecaler() { /* inchangé */ }
+function ouvrirAnnuler(id) { /* inchangé */ }
+
+// ====== NETTOYAGE AUTOMATIQUE toutes les 10 min ======
+setInterval(() => {
+  nettoyerTrajets();
+}, 10 * 60 * 1000);
+
+// ====== INIT ======
+loadStatut();
+loadMesTrajets();
+loadTrajets();
+
+// Rafraîchissement toutes les 30s
+setInterval(() => {
+  const actif = document.querySelector('.nav-btn.active');
+  if (actif && actif.dataset.onglet === 'enregistrement') loadMesTrajets();
+  if (actif && actif.dataset.onglet === 'trajets') loadTrajets();
+}, 30000);
+</script>
+</body>
+</html>

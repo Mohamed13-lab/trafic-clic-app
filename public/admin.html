@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Trafic Clic</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+        body { background: #f3f4f6; margin: 0; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .header h1 { margin: 0; }
+        .btn-param { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-param:hover { background: #2563eb; }
+
+        #map { height: 400px; border-radius: 12px; margin-top: 10px; margin-bottom: 20px; }
+
+        .stats { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
+        .stat-item { background: #e5e7eb; padding: 15px 25px; border-radius: 12px; flex: 1; min-width: 150px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .stat-item:hover { background: #dbeafe; }
+        .stat-item.active { background: #bbf7d0; border: 2px solid #22c55e; }
+        .stat-item .number { font-size: 2em; font-weight: bold; color: #2563eb; }
+        .stat-item .label { color: #4b5563; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+        th { background: #f7fafc; text-align: left; padding: 12px 10px; color: #2d3748; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 10px; border-bottom: 1px solid #edf2f7; }
+        tr:hover { background: #f7fafc; }
+
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: white; }
+        .badge-active { background: #48bb78; }
+        .badge-inactive { background: #fc8181; }
+        .badge-en_attente { background: #f6ad55; }
+        .badge-annule { background: #6b7280; }
+
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 600px; max-width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-content label { display: block; font-weight: 600; margin: 10px 0 4px; }
+        .modal-content input, .modal-content textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; }
+        .modal-content textarea { resize: vertical; }
+        .modal-content input[type="file"] { border: none; padding: 4px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-save { background: #3b82f6; color: white; }
+        .btn-cancel { background: #6b7280; color: white; }
+        .btn-download { background: #10b981; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin: 2px; }
+        .btn-download:hover { background: #059669; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+
+        .empty { color: #a0aec0; text-align: center; padding: 20px; }
+        .error-msg { color: #dc2626; padding: 10px; background: #fee2e2; border-radius: 6px; margin: 10px 0; }
+        .flex-docs { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+        .doc-item { background: #f3f4f6; padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; gap: 8px; }
+        .trajet-tag { background: #dbeafe; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin: 2px; display: inline-block; cursor: pointer; border: 1px solid #60a5fa; }
+        .trajet-tag:hover { background: #bfdbfe; }
+        .trajet-tag .focus-btn { background: #2563eb; color: white; border: none; padding: 0 6px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; margin-left: 4px; }
+        .trajet-tag .focus-btn:hover { background: #1d4ed8; }
+
+        .search-box { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+        .receipt { font-family: 'Courier New', monospace; padding: 20px; background: #f9fafb; border-radius: 8px; margin: 10px 0; }
+        .receipt h3 { text-align: center; margin-bottom: 10px; }
+        .receipt table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .receipt td { padding: 4px 0; border-bottom: 1px dashed #ccc; }
+        .receipt .total { font-weight: bold; font-size: 1.1rem; }
+        .receipt .frais { color: #6b7280; }
+        @media print {
+            body * { visibility: hidden; }
+            .modal-content, .modal-content * { visibility: visible; }
+            .modal { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: white; }
+            .modal-content { box-shadow: none; border-radius: 0; max-width: 100%; }
+            .modal-actions { display: none !important; }
+            .btn-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>📊 Tableau de bord administrateur</h1>
+        <button class="btn-param" onclick="openParamModal()">⚙️ Paramètres</button>
+    </div>
+
+    <div class="card">
+        <h2>🗺️ Trajets en cours</h2>
+        <div id="map"></div>
+    </div>
+
+    <div class="card">
+        <div class="stats">
+            <div class="stat-item" data-tab="chauffeurs" onclick="switchTab('chauffeurs')">
+                <div class="number" id="nbChauffeurs">-</div>
+                <div class="label">Chauffeurs inscrits</div>
+            </div>
+            <div class="stat-item active" data-tab="actifs" onclick="switchTab('actifs')">
+                <div class="number" id="nbActifs">-</div>
+                <div class="label">Chauffeurs actifs</div>
+            </div>
+            <div class="stat-item" data-tab="paiements" onclick="switchTab('paiements')">
+                <div class="number" id="nbPaiements">-</div>
+                <div class="label">Paiements</div>
+            </div>
+            <div class="stat-item" data-tab="attente" onclick="switchTab('attente')">
+                <div class="number" id="nbAttente">-</div>
+                <div class="label">Clients en attente</div>
+            </div>
+            <div class="stat-item" data-tab="publicites" onclick="switchTab('publicites')">
+                <div class="number" id="nbPublicites">-</div>
+                <div class="label">Publicités</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENU DES ONGLETS -->
+    <div id="tabChauffeurs" class="tab-content">
+        <div class="card">
+            <h2>👤 Liste des chauffeurs</h2>
+            <input type="text" id="searchChauffeur" placeholder="🔍 Rechercher..." style="width:100%; padding:8px; margin-bottom:15px; border:1px solid #ccc; border-radius:6px;">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Identifiant</th>
+                            <th>Téléphone</th>
+                            <th>Statut</th>
+                            <th>Annulations</th>
+                            <th>Date suspension</th>
+                            <th>Nb suspensions</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableChauffeurs"><tr><td colspan="8" class="empty">Chargement...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="tabActifs" class="tab-content active">
+        <div class="card">
+            <h2>✅ Chauffeurs actifs / inactifs</h2>
+            <input type="text" id="searchActifs" class="search-box" placeholder="🔍 Filtrer par identifiant, téléphone ou trajet...">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Identifiant</th>
+                            <th>Téléphone</th>
+                            <th>Trajets en cours</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableActifs"><tr><td colspan="5" class="empty">Chargement...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="tabPaiements" class="tab-content">
+        <div class="card">
+            <h2>💳 Paiements</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Client</th>
+                            <th>Téléphone</th>
+                            <th>Trajet</th>
+                            <th>Nb clients</th>
+                            <th>Montant total</th>
+                            <th>Date paiement</th>
+                            <th>Statut</th>
+                            <th>Remboursé</th>
+                            <th>Caution</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablePaiements"><tr><td colspan="11" class="empty">Chargement...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="tabAttente" class="tab-content">
+        <div class="card">
+            <h2>⏳ Clients en attente</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Départ → Arrivée</th><th>Date souhaitée</th><th>Places</th></tr></thead>
+                    <tbody id="tableAttente"><tr><td colspan="6" class="empty">Chargement...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOUVEL ONGLET PUBLICITÉS -->
+    <div id="tabPublicites" class="tab-content">
+        <div class="card">
+            <h2>📢 Gestion des publicités</h2>
+            <form id="formPublicite" style="margin-bottom:20px; display:flex; flex-wrap:wrap; gap:15px; align-items:flex-end;">
+                <div style="flex:1; min-width:150px;">
+                    <label>Emplacement</label>
+                    <select id="pubEmplacement" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                        <option value="haut">Haut</option>
+                        <option value="droite1">Droite 1</option>
+                        <option value="droite2">Droite 2</option>
+                        <option value="droite3">Droite 3</option>
+                    </select>
+                </div>
+                <div style="flex:2; min-width:200px;">
+                    <label>URL de l'image (externe)</label>
+                    <input type="text" id="pubUrl" placeholder="https://exemple.com/image.jpg" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                </div>
+                <div style="flex:1; min-width:150px;">
+                    <label>Ou choisir un fichier</label>
+                    <input type="file" id="pubFile" accept="image/*" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:6px;">
+                </div>
+                <div style="flex:1; min-width:120px;">
+                    <label>Date début</label>
+                    <input type="date" id="pubDateDebut" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                </div>
+                <div style="flex:1; min-width:120px;">
+                    <label>Date fin</label>
+                    <input type="date" id="pubDateFin" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                </div>
+                <button type="submit" style="background:#3b82f6; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:bold;">➕ Ajouter</button>
+            </form>
+            <div id="pubMessage" style="margin-bottom:10px;"></div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Emplacement</th>
+                            <th>Image</th>
+                            <th>Date début</th>
+                            <th>Date fin</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablePublicites"><tr><td colspan="7" class="empty">Aucune publicité.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODALE PARAMÈTRES avec deux champs pour les règles -->
+<div id="paramModal" class="modal">
+    <div class="modal-content">
+        <h2>⚙️ Paramètres du site</h2>
+        <label>Adresse</label>
+        <input type="text" id="paramAdresse" placeholder="Ex: Dakar, Sénégal">
+        <label>Numéro de téléphone</label>
+        <input type="text" id="paramTelephone" placeholder="Ex: +221 77 123 45 67">
+        <label>Logo de l'entreprise</label>
+        <input type="file" id="paramLogo" accept="image/*">
+        <br><br>
+        <label>📜 Règles pour les clients</label>
+        <textarea id="paramReglesClient" rows="6" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-family:inherit;"></textarea>
+        <br>
+        <label>📜 Règles pour les chauffeurs</label>
+        <textarea id="paramReglesChauffeur" rows="6" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-family:inherit;"></textarea>
+        <div style="margin-top:10px;">
+            <button class="btn-save" onclick="saveParams()">💾 Enregistrer</button>
+            <button class="btn-cancel" onclick="closeParamModal()">Fermer</button>
+        </div>
+        <div id="paramMessage" style="margin-top:10px;"></div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// 1. API HELPER
+// ============================================================
+async function fetchAPI(url, options = {}) {
+    try {
+        const res = await fetch(url, options);
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+        return await res.json();
+    } catch (e) {
+        console.warn(`Erreur sur ${url}:`, e.message);
+        return null;
+    }
+}
+
+// ============================================================
+// 2. PARAMÈTRES (avec règles séparées)
+// ============================================================
+function loadParams() {
+    document.getElementById('paramAdresse').value = localStorage.getItem('siteAdresse') || '';
+    document.getElementById('paramTelephone').value = localStorage.getItem('siteTelephone') || '';
+    // Règles client
+    fetch('/api/regles?type=client')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('paramReglesClient').value = data.contenu || '';
+        })
+        .catch(() => {
+            document.getElementById('paramReglesClient').value = 'Erreur chargement.';
+        });
+    // Règles chauffeur
+    fetch('/api/regles?type=chauffeur')
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('paramReglesChauffeur').value = data.contenu || '';
+        })
+        .catch(() => {
+            document.getElementById('paramReglesChauffeur').value = 'Erreur chargement.';
+        });
+}
+
+function openParamModal() {
+    loadParams();
+    document.getElementById('paramModal').style.display = 'flex';
+    document.getElementById('paramMessage').textContent = '';
+}
+
+function closeParamModal() {
+    document.getElementById('paramModal').style.display = 'none';
+}
+
+async function saveParams() {
+    const adresse = document.getElementById('paramAdresse').value.trim();
+    const telephone = document.getElementById('paramTelephone').value.trim();
+    const reglesClient = document.getElementById('paramReglesClient').value.trim();
+    const reglesChauffeur = document.getElementById('paramReglesChauffeur').value.trim();
+    const logoInput = document.getElementById('paramLogo');
+
+    localStorage.setItem('siteAdresse', adresse);
+    localStorage.setItem('siteTelephone', telephone);
+
+    let message = '';
+
+    if (reglesClient) {
+        try {
+            const res = await fetch('/api/regles', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'client', contenu: reglesClient })
+            });
+            const data = await res.json();
+            message += res.ok ? '✅ Règles client enregistrées.\n' : '❌ Erreur client : ' + (data.error || 'Inconnue') + '\n';
+        } catch (e) {
+            message += '❌ Erreur réseau client : ' + e.message + '\n';
+        }
+    }
+
+    if (reglesChauffeur) {
+        try {
+            const res = await fetch('/api/regles', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'chauffeur', contenu: reglesChauffeur })
+            });
+            const data = await res.json();
+            message += res.ok ? '✅ Règles chauffeur enregistrées.\n' : '❌ Erreur chauffeur : ' + (data.error || 'Inconnue') + '\n';
+        } catch (e) {
+            message += '❌ Erreur réseau chauffeur : ' + e.message + '\n';
+        }
+    }
+
+    if (logoInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            localStorage.setItem('siteLogo', e.target.result);
+            document.getElementById('paramMessage').innerHTML = message.replace(/\n/g, '<br>') + '<br><span style="color:green;">✅ Logo enregistré.</span>';
+            setTimeout(() => closeParamModal(), 2000);
+        };
+        reader.readAsDataURL(logoInput.files[0]);
+    } else {
+        document.getElementById('paramMessage').innerHTML = message.replace(/\n/g, '<br>');
+        setTimeout(() => closeParamModal(), 2000);
+    }
+}
+
+// ============================================================
+// 3. CARTE
+// ============================================================
+let map = null;
+let selectedMarker = null;
+let selectedPolyline = null;
+let allTrajets = [];
+
+function initMap() {
+    if (map) return;
+    map = L.map('map').setView([14.7167, -17.4677], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '©️ OpenStreetMap'
+    }).addTo(map);
+}
+
+async function loadTrajetsForMap() {
+    if (!map) return;
+    const tousTrajets = await fetchAPI('/api/trajets/all') || [];
+    allTrajets = tousTrajets;
+    const trajets = tousTrajets.filter(t => t.statut === 'en_cours');
+    map.eachLayer(layer => {
+        if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+            map.removeLayer(layer);
+        }
+    });
+    const bounds = L.latLngBounds();
+    let hasBounds = false;
+    trajets.forEach(t => {
+        if (t.lat_depart && t.lng_depart) {
+            const marker = L.marker([t.lat_depart, t.lng_depart]).addTo(map);
+            marker.bindPopup(`<b>Départ :</b> ${t.depart || ''}<br><b>Chauffeur :</b> ${t.chauffeur_id || ''}`);
+            bounds.extend([t.lat_depart, t.lng_depart]);
+            hasBounds = true;
+        }
+        if (t.lat_arrivee && t.lng_arrivee) {
+            const marker = L.marker([t.lat_arrivee, t.lng_arrivee]).addTo(map);
+            marker.bindPopup(`<b>Arrivée :</b> ${t.arrivee || ''}<br><b>Chauffeur :</b> ${t.chauffeur_id || ''}`);
+            bounds.extend([t.lat_arrivee, t.lng_arrivee]);
+            hasBounds = true;
+        }
+        if (t.lat_depart && t.lng_depart && t.lat_arrivee && t.lng_arrivee) {
+            L.polyline([[t.lat_depart, t.lng_depart], [t.lat_arrivee, t.lng_arrivee]], {
+                color: '#3b82f6',
+                weight: 3,
+                opacity: 0.7
+            }).addTo(map);
+        }
+    });
+    if (hasBounds) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+    } else {
+        map.setView([14.7167, -17.4677], 13);
+    }
+}
+
+async function focusOnTrajet(id, highlight = false) {
+    const trajet = allTrajets.find(t => t.id === id);
+    if (!trajet) { alert('Trajet introuvable.'); return; }
+    const lat1 = trajet.lat_depart, lng1 = trajet.lng_depart;
+    const lat2 = trajet.lat_arrivee, lng2 = trajet.lng_arrivee;
+    if (!lat1 || !lng1 || !lat2 || !lng2) {
+        alert('Coordonnées non disponibles.');
+        return;
+    }
+    if (selectedMarker) map.removeLayer(selectedMarker);
+    if (selectedPolyline) map.removeLayer(selectedPolyline);
+    selectedMarker = L.marker([lat1, lng1]).addTo(map).bindPopup(`<b>Trajet #${id}</b>`).openPopup();
+    selectedPolyline = L.polyline([[lat1, lng1], [lat2, lng2]], { color: highlight ? 'red' : '#3b82f6', weight: 4, dashArray: '5, 10' }).addTo(map);
+    map.fitBounds(L.latLngBounds([lat1, lng1], [lat2, lng2]), { padding: [50, 50] });
+}
+
+// ============================================================
+// 4. STATS
+// ============================================================
+async function loadStats() {
+    try {
+        const chauffeurs = await fetchAPI('/api/chauffeurs') || [];
+        document.getElementById('nbChauffeurs').innerText = chauffeurs.length || 0;
+        const tousTrajets = await fetchAPI('/api/trajets/all') || [];
+        const actifsIds = new Set();
+        tousTrajets.filter(t => t.statut === 'en_cours').forEach(t => actifsIds.add(t.chauffeur_id));
+        document.getElementById('nbActifs').innerText = actifsIds.size || 0;
+        const paiements = await fetchAPI('/api/admin/paiements') || [];
+        document.getElementById('nbPaiements').innerText = paiements.length || 0;
+        const attente = await fetchAPI('/api/attente') || [];
+        document.getElementById('nbAttente').innerText = attente.length || 0;
+        const publicites = await fetchAPI('/api/admin/publicites') || [];
+        document.getElementById('nbPublicites').innerText = publicites.length || 0;
+    } catch (e) { console.error('Erreur stats:', e); }
+}
+
+// ============================================================
+// 5. ONGLETS
+// ============================================================
+function switchTab(tab) {
+    document.querySelectorAll('.stat-item').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.stat-item[data-tab="${tab}"]`).classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (target) target.classList.add('active');
+    if (tab === 'paiements') loadPaiements();
+    if (tab === 'actifs') loadActifs();
+    if (tab === 'chauffeurs') loadChauffeurs();
+    if (tab === 'attente') loadAttente();
+    if (tab === 'publicites') loadPublicitesAdmin();
+}
+
+// ============================================================
+// 6. CHAUFFEURS
+// ============================================================
+async function loadChauffeurs() {
+    try {
+        const data = await fetchAPI('/api/chauffeurs') || [];
+        const tbody = document.getElementById('tableChauffeurs');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty">Aucun chauffeur.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(c => `
+            <tr>
+                <td>${c.id}</td>
+                <td>${c.identifiant || '-'}</td>
+                <td>${c.telephone || '-'}</td>
+                <td><span class="badge ${c.bloque_until ? 'badge-inactive' : 'badge-active'}">${c.bloque_until ? 'Suspendu' : 'Actif'}</span></td>
+                <td>${c.annulations_consecutives || 0}</td>
+                <td>${c.bloque_until ? new Date(c.bloque_until).toLocaleDateString() : '-'}</td>
+                <td>${c.nb_suspensions || 0}</td>
+                <td>
+                    <button class="btn-download" onclick="voirChauffeur(${c.id})">📄 Voir</button>
+                    ${c.bloque_until ? `<button class="btn-download" style="background:#48bb78;" onclick="activerChauffeur(${c.id})">Activer</button>` : `<button class="btn-download" style="background:#ed8936;" onclick="suspendreChauffeur(${c.id})">Suspendre</button>`}
+                    <button class="btn-download" style="background:#ef4444;" onclick="supprimerChauffeur(${c.id})">Supprimer</button>
+                </td>
+            </tr>
+        `).join('');
+        // Filtre
+        document.getElementById('searchChauffeur').addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(q) ? '' : 'none';
+            });
+        });
+    } catch (e) { console.error('Erreur loadChauffeurs:', e); }
+}
+
+async function voirChauffeur(id) {
+    alert('Fonction voirChauffeur à implémenter');
+}
+
+async function suspendreChauffeur(id) {
+    if (!confirm('Suspendre ce chauffeur ?')) return;
+    try {
+        await fetchAPI('/api/admin/chauffeur/' + id + '/suspendre', { method: 'PUT' });
+        alert('✅ Chauffeur suspendu.');
+        loadChauffeurs();
+    } catch (err) { alert('Erreur : ' + err.message); }
+}
+
+async function activerChauffeur(id) {
+    if (!confirm('Réactiver ce chauffeur ?')) return;
+    try {
+        await fetchAPI('/api/admin/chauffeur/' + id + '/activer', { method: 'PUT' });
+        alert('✅ Chauffeur réactivé.');
+        loadChauffeurs();
+    } catch (err) { alert('Erreur : ' + err.message); }
+}
+
+async function supprimerChauffeur(id) {
+    if (!confirm('Supprimer définitivement ce chauffeur ?')) return;
+    try {
+        await fetchAPI('/api/admin/chauffeur/' + id, { method: 'DELETE' });
+        alert('✅ Chauffeur supprimé.');
+        loadChauffeurs();
+    } catch (err) { alert('Erreur : ' + err.message); }
+}
+
+// ============================================================
+// 7. ACTIFS
+// ============================================================
+async function loadActifs() {
+    try {
+        const chauffeurs = await fetchAPI('/api/chauffeurs') || [];
+        const actifs = chauffeurs.filter(c => !c.bloque_until);
+        const tousTrajets = await fetchAPI('/api/trajets/all') || [];
+        const trajetsParChauffeur = {};
+        tousTrajets.forEach(t => {
+            if (!trajetsParChauffeur[t.chauffeur_id]) trajetsParChauffeur[t.chauffeur_id] = [];
+            trajetsParChauffeur[t.chauffeur_id].push(t);
+        });
+        const rows = actifs.map(c => {
+            const trajets = trajetsParChauffeur[c.id] || [];
+            const trajetEnCours = trajets.find(t => t.statut === 'en_cours');
+            const statutLabel = trajetEnCours ? 'Actif' : 'En attente';
+            const statutCls = trajetEnCours ? 'badge-active' : 'badge-en_attente';
+            const trajetsEnCours = trajets.filter(t => t.statut === 'en_cours');
+            let trajetsHtml = trajetsEnCours.length === 0 ? '<span class="empty" style="font-size:0.8rem;">Aucun trajet en cours</span>' :
+                trajetsEnCours.map(t => `<span class="trajet-tag" onclick="focusOnTrajet(${t.id}, true)">${t.depart || '?'} → ${t.arrivee || '?'} <span class="focus-btn">📍</span></span>`).join(' ');
+            return { id: c.id, identifiant: c.identifiant || '-', telephone: c.telephone || '-', trajetsHtml, statutLabel, statutCls, trajetsEnCours };
+        });
+        window.actifsData = rows;
+        const tbody = document.getElementById('tableActifs');
+        if (!tbody) return;
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty">Aucun chauffeur correspondant.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.identifiant}</td>
+                <td>${r.telephone}</td>
+                <td>${r.trajetsHtml}</td>
+                <td><span class="badge ${r.statutCls}">${r.statutLabel}</span></td>
+            </tr>
+        `).join('');
+        // Filtre
+        document.getElementById('searchActifs').addEventListener('input', function() {
+            filterActifs(this.value);
+        });
+    } catch (e) { console.error('Erreur loadActifs:', e); }
+}
+
+function filterActifs(query) {
+    const q = query.toLowerCase().trim();
+    const rows = window.actifsData || [];
+    if (!q) {
+        renderActifs(rows);
+        loadTrajetsForMap();
+        return;
+    }
+    const filtered = rows.filter(r =>
+        r.identifiant.toLowerCase().includes(q) ||
+        r.telephone.includes(q) ||
+        r.trajetsHtml.toLowerCase().includes(q)
+    );
+    renderActifs(filtered);
+    const trajetsIds = [];
+    filtered.forEach(r => r.trajetsEnCours.forEach(t => trajetsIds.push(t.id)));
+    if (trajetsIds.length > 0) {
+        loadTrajetsForMap().then(() => focusOnTrajet(trajetsIds[0], true));
+    } else {
+        loadTrajetsForMap();
+    }
+}
+
+function renderActifs(rows) {
+    const tbody = document.getElementById('tableActifs');
+    if (!tbody) return;
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">Aucun chauffeur correspondant.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td>${r.id}</td>
+            <td>${r.identifiant}</td>
+            <td>${r.telephone}</td>
+            <td>${r.trajetsHtml}</td>
+            <td><span class="badge ${r.statutCls}">${r.statutLabel}</span></td>
+        </tr>
+    `).join('');
+}
+
+// ============================================================
+// 8. PAIEMENTS
+// ============================================================
+async function loadPaiements() {
+    try {
+        const data = await fetchAPI('/api/admin/paiements') || [];
+        const tbody = document.getElementById('tablePaiements');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" class="empty">Aucun paiement.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td>${p.id}</td>
+                <td>${p.client_nom || '-'}</td>
+                <td>${p.client_telephone || '-'}</td>
+                <td>${p.trajet_depart || ''} → ${p.trajet_arrivee || ''}</td>
+                <td>${p.nb_clients || p.nb_places || 1}</td>
+                <td>${p.montant_total || 0} FCFA</td>
+                <td>${p.date_creation ? new Date(p.date_creation).toLocaleString() : '-'}</td>
+                <td><span class="badge ${p.statut === 'confirmee' ? 'badge-active' : p.statut === 'annule' ? 'badge-annule' : 'badge-en_attente'}">${p.statut || 'Inconnu'}</span></td>
+                <td>${p.rembourse ? '✅ Oui' : '❌ Non'}</td>
+                <td>${p.caution || 0} FCFA ${p.caution_bloquee ? '🔒' : '🔓'}</td>
+                <td>${p.statut !== 'annule' ? `<button class="btn-danger" onclick="annulerPaiement(${p.id})">Annuler paiement</button>` : ''}</td>
+            </tr>
+        `).join('');
+    } catch (e) { console.error('Erreur loadPaiements:', e); }
+}
+
+async function annulerPaiement(id) {
+    if (!confirm('Annuler ce paiement ?')) return;
+    try {
+        await fetchAPI('/api/admin/paiements/' + id + '/annuler', { method: 'PUT' });
+        alert('✅ Paiement annulé.');
+        loadPaiements();
+    } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+// ============================================================
+// 9. ATTENTE
+// ============================================================
+async function loadAttente() {
+    try {
+        const data = await fetchAPI('/api/attente') || [];
+        const tbody = document.getElementById('tableAttente');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucune demande en attente.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(a => `
+            <tr>
+                <td>${a.id}</td>
+                <td>${a.nom || '-'}</td>
+                <td>${a.telephone || '-'}</td>
+                <td>${a.depart || '?'} → ${a.arrivee || '?'}</td>
+                <td>${a.date_souhaitee || '-'}</td>
+                <td>${a.nb_places || 1}</td>
+            </tr>
+        `).join('');
+    } catch (e) { console.error('Erreur loadAttente:', e); }
+}
+
+// ============================================================
+// 10. PUBLICITÉS
+// ============================================================
+async function loadPublicitesAdmin() {
+    try {
+        const data = await fetchAPI('/api/admin/publicites') || [];
+        const tbody = document.getElementById('tablePublicites');
+        if (!tbody) return;
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucune publicité.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td>${p.id}</td>
+                <td>${p.emplacement}</td>
+                <td>${p.image_url ? `<a href="${p.image_url}" target="_blank">Voir</a>` : '-'}</td>
+                <td>${p.date_debut || '-'}</td>
+                <td>${p.date_fin || '-'}</td>
+                <td>${p.actif === 1 ? '✅ Actif' : '⛔ Inactif'}</td>
+                <td><button class="btn-danger" onclick="supprimerPubliciteAdmin(${p.id})">Supprimer</button></td>
+            </tr>
+        `).join('');
+    } catch (e) { console.error('Erreur loadPublicites:', e); }
+}
+
+async function supprimerPubliciteAdmin(id) {
+    if (!confirm('Supprimer cette publicité ?')) return;
+    try {
+        await fetchAPI('/api/admin/publicites/' + id, { method: 'DELETE' });
+        alert('✅ Publicité supprimée.');
+        loadPublicitesAdmin();
+        loadStats();
+    } catch (e) { alert('Erreur : ' + e.message); }
+}
+
+// Formulaire publicité
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('formPublicite');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const emplacement = document.getElementById('pubEmplacement').value;
+            const url = document.getElementById('pubUrl').value.trim();
+            const file = document.getElementById('pubFile').files[0];
+            const date_debut = document.getElementById('pubDateDebut').value;
+            const date_fin = document.getElementById('pubDateFin').value;
+            const msg = document.getElementById('pubMessage');
+            if (!emplacement) {
+                msg.innerHTML = '<span style="color:red;">Emplacement requis.</span>';
+                return;
+            }
+            let image_url = url;
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async function(ev) {
+                    const base64 = ev.target.result;
+                    await envoyerPublicite(emplacement, base64, date_debut, date_fin, msg);
+                };
+                reader.readAsDataURL(file);
+            } else if (url) {
+                await envoyerPublicite(emplacement, url, date_debut, date_fin, msg);
+            } else {
+                msg.innerHTML = '<span style="color:red;">Veuillez fournir une image (URL ou fichier).</span>';
+            }
+        });
+    }
+});
+
+async function envoyerPublicite(emplacement, image_url, date_debut, date_fin, msg) {
+    try {
+        const res = await fetchAPI('/api/admin/publicites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emplacement, image_url, date_debut, date_fin })
+        });
+        if (res && res.id) {
+            msg.innerHTML = `<span style="color:green;">✅ Publicité ajoutée (ID: ${res.id})</span>`;
+            document.getElementById('pubUrl').value = '';
+            document.getElementById('pubFile').value = '';
+            document.getElementById('pubDateDebut').value = '';
+            document.getElementById('pubDateFin').value = '';
+            loadPublicitesAdmin();
+            loadStats();
+        } else {
+            msg.innerHTML = `<span style="color:red;">❌ Erreur : ${res?.error || 'Inconnue'}</span>`;
+        }
+    } catch (e) {
+        msg.innerHTML = `<span style="color:red;">❌ Erreur : ${e.message}</span>`;
+    }
+}
+
+// ============================================================
+// 11. INITIALISATION
+// ============================================================
+async function initDashboard() {
+    await loadStats();
+    await loadChauffeurs();
+    await loadActifs();
+    await loadPaiements();
+    await loadAttente();
+    await loadPublicitesAdmin();
+    initMap();
+    await loadTrajetsForMap();
+    setInterval(() => {
+        fetchAPI('/api/admin/publicites/cleanup', { method: 'POST' });
+    }, 60 * 60 * 1000);
+}
+
+initDashboard();
+</script>
+</body>
+</html>

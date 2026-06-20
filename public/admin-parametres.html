@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head><title>Paramètres du site</title></head>
+<body>
+<h1>⚙️ Paramètres du site</h1>
+<form id="paramForm" enctype="multipart/form-data">
+  <div>
+    <label>Logo entreprise</label>
+    <input type="file" id="logo_entreprise_file" accept="image/*">
+    <input type="hidden" id="logo_entreprise" name="logo_entreprise">
+    <button type="button" onclick="uploadLogo('logo_entreprise_file', 'logo_entreprise')">Télécharger</button>
+    <span id="logo_entreprise_preview"></span>
+  </div>
+  <div>
+    <label>Logo site</label>
+    <input type="file" id="logo_site_file" accept="image/*">
+    <input type="hidden" id="logo_site" name="logo_site">
+    <button type="button" onclick="uploadLogo('logo_site_file', 'logo_site')">Télécharger</button>
+    <span id="logo_site_preview"></span>
+  </div>
+  <div><label>Siège social</label><input type="text" id="siege_social" name="siege_social" style="width:100%;"></div>
+  <div><label>Téléphone</label><input type="text" id="telephone" name="telephone" style="width:100%;"></div>
+  <button type="submit" style="background:#3b82f6; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Enregistrer tout</button>
+</form>
+<div id="message"></div>
+<script>
+  const TOKEN = 'admin_secret_token';
+
+  async function uploadLogo(fileInputId, hiddenInputId) {
+    const fileInput = document.getElementById(fileInputId);
+    const file = fileInput.files[0];
+    if (!file) { alert('Sélectionnez un fichier'); return; }
+    const formData = new FormData();
+    formData.append('logo', file);
+    const res = await fetch('/api/upload/logo', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById(hiddenInputId).value = data.chemin;
+      document.getElementById(hiddenInputId + '_preview').innerHTML = `<img src="${data.chemin}" style="height:50px;">`;
+      document.getElementById('message').textContent = 'Logo téléchargé !';
+    } else {
+      alert('Erreur : ' + data.error);
+    }
+  }
+
+  async function loadParams() {
+    const res = await fetch('/api/parametres');
+    const data = await res.json();
+    document.getElementById('logo_entreprise').value = data.logo_entreprise || '';
+    document.getElementById('logo_site').value = data.logo_site || '';
+    document.getElementById('siege_social').value = data.siege_social || '';
+    document.getElementById('telephone').value = data.telephone || '';
+    if (data.logo_entreprise) document.getElementById('logo_entreprise_preview').innerHTML = `<img src="${data.logo_entreprise}" style="height:50px;">`;
+    if (data.logo_site) document.getElementById('logo_site_preview').innerHTML = `<img src="${data.logo_site}" style="height:50px;">`;
+  }
+
+  document.getElementById('paramForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fields = ['logo_entreprise', 'logo_site', 'siege_social', 'telephone'];
+    for (const cle of fields) {
+      const valeur = document.getElementById(cle).value.trim();
+      await fetch('/api/parametres', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+        body: JSON.stringify({ cle, valeur })
+      });
+    }
+    document.getElementById('message').textContent = 'Paramètres mis à jour !';
+    loadParams();
+  });
+
+  loadParams();
+</script>
+</body>
+</html>

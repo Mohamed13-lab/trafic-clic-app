@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trafic Clic – Covoiturage</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(145deg, #f8f0e6 0%, #fde68a 40%, #f59e0b 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1400px;
+      width: 100%;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      border-radius: 40px;
+      padding: 40px 30px;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.15);
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .main-content { flex: 1; min-width: 300px; }
+    .sidebar-pub {
+      width: 320px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+      min-height: 400px;
+    }
+    .pub-item {
+      width: 100%;
+      min-height: 150px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4b5563;
+      font-weight: 500;
+      background: #e5e7eb;
+    }
+    .pub-item img { max-width: 100%; border-radius: 12px; }
+    .pub-banner {
+      background: #e5e7eb;
+      padding: 18px 25px;
+      border-radius: 50px;
+      font-weight: 600;
+      margin: 20px 0 30px 0;
+      font-size: 1.2rem;
+      text-align: center;
+    }
+    .pub-banner img { max-width: 100%; border-radius: 50px; }
+    .logo-area { text-align: center; margin-bottom: 10px; }
+    .logo-main {
+      font-size: 4.5rem;
+      font-weight: 900;
+      color: #1a365d;
+      letter-spacing: 4px;
+      text-shadow: 0 4px 30px rgba(26,54,93,0.2);
+    }
+    .logo-main .highlight { color: #f6ad55; }
+    .logo-main .arrow, .logo-main .cursor { color: #f6ad55; font-size: 4rem; }
+    .logo-sub { font-size: 1.3rem; color: #4a5568; margin-top: 4px; font-weight: 300; letter-spacing: 2px; }
+    .choice-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin: 20px 0;
+    }
+    @media (max-width: 700px) { .choice-grid { grid-template-columns: 1fr; } }
+    .choice-card {
+      background: white;
+      border-radius: 24px;
+      padding: 35px 25px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+      transition: transform 0.2s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      border-left: 6px solid #ed8936;
+    }
+    .choice-card.client { border-left-color: #48bb78; }
+    .choice-card:hover { transform: translateY(-6px); box-shadow: 0 15px 40px rgba(0,0,0,0.15); }
+    .choice-card .icon { font-size: 4rem; margin-bottom: 15px; }
+    .choice-card h2 { font-size: 1.8rem; color: #1a365d; margin-bottom: 8px; }
+    .choice-card p { color: #4a5568; font-size: 1rem; line-height: 1.5; }
+    .footer-links {
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+      color: #4a5568;
+    }
+    .footer-links a { color: #2b6cb0; text-decoration: none; font-weight: 500; }
+    .footer-links a:hover { text-decoration: underline; }
+    @media (max-width: 1000px) { .sidebar-pub { width: 100%; min-height: 100px; } .container { flex-direction: column; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="main-content">
+    <div class="logo-area">
+      <div class="logo-main">TRAFIC<span class="arrow">↗️</span> <span class="highlight">CLIC</span><span class="cursor">➤</span></div>
+      <div class="logo-sub">🚗 Covoiturage simple, rapide et sécurisé</div>
+    </div>
+
+    <!-- BANNIÈRE HAUT (dynamique) -->
+    <div id="pubHaut" class="pub-banner">Chargement...</div>
+
+    <div class="choice-grid">
+      <a href="/chauffeur.html" class="choice-card">
+        <div class="icon">🚐</div>
+        <h2>Espace Chauffeur</h2>
+        <p>Publiez vos trajets, gérez vos réservations, suivez vos gains.</p>
+      </a>
+      <a href="/client.html" class="choice-card client">
+        <div class="icon">👤</div>
+        <h2>Espace Client</h2>
+        <p>Recherchez un trajet, réservez en quelques clics, suivez vos réservations.</p>
+      </a>
+    </div>
+
+    <div class="footer-links">
+      <span>📞 +221 77 123 45 67</span>
+      <span>📍 Dakar, Sénégal</span>
+      <a href="#">À propos</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+
+  <div class="sidebar-pub">
+    <div id="pubDroite1" class="pub-item">Chargement...</div>
+    <div id="pubDroite2" class="pub-item">Chargement...</div>
+    <div id="pubDroite3" class="pub-item">Chargement...</div>
+  </div>
+</div>
+<script>
+async function loadPublicites() {
+  try {
+    const res = await fetch('/api/admin/publicites');
+    if (!res.ok) throw new Error('Erreur chargement publicites');
+    const pubs = await res.json();
+    const now = new Date().toISOString().split('T')[0];
+    pubs.filter(p => p.actif === 1 && (!p.date_fin || p.date_fin >= now) && (!p.date_debut || p.date_debut <= now)).forEach(p => {
+      const id = 'pub' + p.emplacement.charAt(0).toUpperCase() + p.emplacement.slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.innerHTML = `<img src="${p.image_url}" alt="publicité" style="max-width:100%; border-radius:12px;">`;
+      }
+    });
+  } catch(e) { console.error('Erreur publicites:', e); }
+}
+document.addEventListener('DOMContentLoaded', loadPublicites);
+</script>
+</body>
+</html>

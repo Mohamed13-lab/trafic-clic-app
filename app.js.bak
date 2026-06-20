@@ -1,0 +1,276 @@
+const express = require('express');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const app = express();
+const port = 3000;
+
+app.use(express.json());
+app.use(express.static('public'));
+
+const db = new sqlite3.Database('./trafic.db');
+
+app.get('/api/trajets', (req, res) => {
+  db.all('SELECT * FROM trajets WHERE statut = "actif" AND places_restantes > 0 ORDER BY date_depart ASC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.get('/api/trajets/all', (req, res) => {
+  db.all('SELECT * FROM trajets ORDER BY date_depart DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/trajets', (req, res) => {
+  const { chauffeur_id, depart, arrivee, date_depart, tarif_par_place, places_total, places_restantes, statut, ramassage, caution } = req.body;
+  if (!chauffeur_id || !depart || !arrivee || !date_depart || !tarif_par_place || !places_total) {
+    return res.status(400).json({ error: 'Champs manquants' });
+  }
+  db.run(
+    'INSERT INTO trajets (chauffeur_id, depart, arrivee, date_depart, tarif_par_place, places_total, places_restantes, statut, ramassage, caution) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [chauffeur_id, depart, arrivee, date_depart, tarif_par_place, places_total, places_restantes || places_total, statut || 'actif', ramassage || 0, caution || 0],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, message: 'Trajet créé' });
+    }
+  );
+});
+
+app.put('/api/trajets/:id/depart', (req, res) => {
+  const { id } = req.params;
+  db.run('UPDATE trajets SET statut = "en_cours" WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Trajet démarré' });
+  });
+});
+
+app.put('/api/trajets/:id/arrive', (req, res) => {
+  const { id } = req.params;
+  db.run('UPDATE trajets SET statut = "termine" WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Trajet terminé' });
+  });
+});
+
+app.put('/api/trajets/:id/decaler', (req, res) => {
+  const { id } = req.params;
+  const { date_depart, depart, ramassage } = req.body;
+  let query = 'UPDATE trajets SET date_depart = ?, statut = "reporte"';
+  const params = [date_depart];
+  if (depart) { query += ', depart = ?'; params.push(depart); }
+  if (ramassage !== undefined) { query += ', ramassage = ?'; params.push(ramassage); }
+  query += ' WHERE id = ?';
+  params.push(id);
+  db.run(query, params, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Trajet décalé' });
+  });
+});
+
+app.delete('/api/trajets/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('UPDATE trajets SET statut = "annule" WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Trajet annulé' });
+  });
+});
+
+app.get('/api/chauffeurs', (req, res) => {
+  db.all('SELECT * FROM chauffeurs ORDER BY id DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.get('/api/chauffeur/:id', (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT * FROM chauffeurs WHERE id = ?', [id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(row);
+  });
+});
+
+app.put('/api/admin/chauffeur/:id/suspendre', (req, res) => {
+  const { id } = req.params;
+  const { bloque_until } = req.body;
+  db.run('UPDATE chauffeurs SET bloque_until = ?, nb_suspensions = nb_suspensions + 1 WHERE id = ?', [bloque_until, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Chauffeur suspendu' });
+  });
+});
+
+app.put('/api/admin/chauffeur/:id/activer', (req, res) => {
+  const { id } = req.params;
+  const { bloque_until, annulations_consecutives } = req.body;
+  db.run('UPDATE chauffeurs SET bloque_until = ?, annulations_consecutives = ? WHERE id = ?', [bloque_until || null, annulations_consecutives || 0, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Chauffeur activé' });
+  });
+});
+
+app.delete('/api/admin/chauffeur/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('DELETE FROM chauffeurs WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Chauffeur supprimé' });
+  });
+});
+
+app.post('/api/clients', (req, res) => {
+  const { nom, telephone } = req.body;
+  if (!nom || !telephone) {
+    return res.status(400).json({ error: 'Nom et téléphone requis' });
+  }
+  db.run('INSERT INTO clients (nom, telephone) VALUES (?, ?)', [nom, telephone], function(err) {
+    if (err) {
+      if (err.message.includes('UNIQUE')) {
+        return res.status(409).json({ error: 'Ce numéro existe déjà' });
+      }
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ id: this.lastID, nom, telephone });
+  });
+});
+
+app.get('/api/attente', (req, res) => {
+  db.all('SELECT * FROM attente ORDER BY date_creation DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/attente', (req, res) => {
+  const { client_id, nom, telephone, depart, arrivee, nb_places, heure_debut, date_souhaitee } = req.body;
+  if (!nom || !telephone || !depart || !arrivee || !nb_places || !heure_debut || !date_souhaitee) {
+    return res.status(400).json({ error: 'Champs manquants' });
+  }
+  db.run(
+    'INSERT INTO attente (client_id, nom, telephone, depart, arrivee, nb_places, heure_debut, date_souhaitee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [client_id || null, nom, telephone, depart, arrivee, nb_places, heure_debut, date_souhaitee],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, message: 'Demande ajoutée' });
+    }
+  );
+});
+
+app.put('/api/attente/:id', (req, res) => {
+  const { id } = req.params;
+  const { nb_places, heure_debut, date_souhaitee } = req.body;
+  if (!nb_places || !heure_debut || !date_souhaitee) {
+    return res.status(400).json({ error: 'Champs manquants' });
+  }
+  db.run('UPDATE attente SET nb_places = ?, heure_debut = ?, date_souhaitee = ? WHERE id = ?', [nb_places, heure_debut, date_souhaitee, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Demande modifiée' });
+  });
+});
+
+app.delete('/api/attente/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('DELETE FROM attente WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Demande supprimée' });
+  });
+});
+
+app.get('/api/admin/publicites', (req, res) => {
+  db.all('SELECT * FROM publicites ORDER BY id DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/admin/publicites', (req, res) => {
+  const { emplacement, image_url, date_debut, date_fin } = req.body;
+  if (!emplacement || !image_url) {
+    return res.status(400).json({ error: 'Emplacement et image requis' });
+  }
+  db.run(
+    'INSERT INTO publicites (emplacement, image_url, date_debut, date_fin, actif) VALUES (?, ?, ?, ?, 1)',
+    [emplacement, image_url, date_debut || null, date_fin || null],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, message: 'Publicité ajoutée' });
+    }
+  );
+});
+
+app.delete('/api/admin/publicites/:id', (req, res) => {
+  const { id } = req.params;
+  db.run('DELETE FROM publicites WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Publicité supprimée' });
+  });
+});
+
+app.post('/api/admin/publicites/cleanup', (req, res) => {
+  const now = new Date().toISOString().split('T')[0];
+  db.run('UPDATE publicites SET actif = 0 WHERE date_fin < ? AND date_fin IS NOT NULL', [now], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ cleaned: this.changes });
+  });
+});
+
+app.get('/api/regles', (req, res) => {
+  const { type } = req.query;
+  if (!type || (type !== 'client' && type !== 'chauffeur')) {
+    return res.status(400).json({ error: 'Type requis (client ou chauffeur)' });
+  }
+  db.get('SELECT contenu FROM regles WHERE type = ?', [type], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) {
+      const defaut = type === 'client'
+        ? '• Recherchez un trajet selon vos besoins.\n• Réservez en quelques clics.\n• Payez en ligne ou en espèces.\n• Annulation gratuite jusqu\'à 24h avant le départ.'
+        : '• Publiez vos trajets gratuitement.\n• Gérez vos réservations en temps réel.\n• Recevez vos paiements en toute sécurité.\n• Annulation possible jusqu\'à 7h avant le départ.';
+      db.run('INSERT INTO regles (type, contenu) VALUES (?, ?)', [type, defaut], function(err2) {
+        if (err2) return res.status(500).json({ error: err2.message });
+        res.json({ contenu: defaut });
+      });
+    } else {
+      res.json({ contenu: row.contenu });
+    }
+  });
+});
+
+app.put('/api/regles', (req, res) => {
+  const { type, contenu } = req.body;
+  if (!type || (type !== 'client' && type !== 'chauffeur')) {
+    return res.status(400).json({ error: 'Type requis (client ou chauffeur)' });
+  }
+  if (!contenu || contenu.trim() === '') {
+    return res.status(400).json({ error: 'Le contenu ne peut pas être vide' });
+  }
+  db.run('UPDATE regles SET contenu = ? WHERE type = ?', [contenu, type], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) {
+      db.run('INSERT INTO regles (type, contenu) VALUES (?, ?)', [type, contenu], function(err2) {
+        if (err2) return res.status(500).json({ error: err2.message });
+        res.json({ message: '✅ Règles mises à jour' });
+      });
+    } else {
+      res.json({ message: '✅ Règles mises à jour' });
+    }
+  });
+});
+
+app.get('/api/admin/paiements', (req, res) => {
+  db.all('SELECT * FROM paiements ORDER BY date_creation DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.put('/api/admin/paiements/:id/annuler', (req, res) => {
+  const { id } = req.params;
+  db.run('UPDATE paiements SET statut = "annule", rembourse = 1 WHERE id = ?', [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ message: 'Paiement annulé' });
+  });
+});
+
+app.listen(port, () => {
+  console.log('Serveur démarré sur http://localhost:' + port);
+});

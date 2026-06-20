@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Trafic Clic</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+        body { background: #f3f4f6; margin: 0; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .header h1 { margin: 0; }
+        .btn-param { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-param:hover { background: #2563eb; }
+
+        .stats { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
+        .stat-item { background: #e5e7eb; padding: 15px 25px; border-radius: 12px; flex: 1; min-width: 150px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .stat-item:hover { background: #dbeafe; }
+        .stat-item.active { background: #bbf7d0; border: 2px solid #22c55e; }
+        .stat-item .number { font-size: 2em; font-weight: bold; color: #2563eb; }
+        .stat-item .label { color: #4b5563; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+        th { background: #f7fafc; text-align: left; padding: 12px 10px; color: #2d3748; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 10px; border-bottom: 1px solid #edf2f7; }
+        tr:hover { background: #f7fafc; }
+
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: white; }
+        .badge-active { background: #48bb78; }
+        .badge-inactive { background: #fc8181; }
+        .badge-en_attente { background: #f6ad55; }
+
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 500px; max-width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-content label { display: block; font-weight: 600; margin: 10px 0 4px; }
+        .modal-content input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+        .modal-content input[type="file"] { border: none; padding: 4px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-save { background: #3b82f6; color: white; }
+        .btn-cancel { background: #6b7280; color: white; }
+
+        #map { height: 300px; border-radius: 12px; margin-top: 10px; }
+        .flex { display: flex; gap: 20px; flex-wrap: wrap; }
+        .flex > div { flex: 1; min-width: 300px; }
+
+        .hidden { display: none; }
+        .login-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 400px; }
+        .login-box input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px; }
+        .login-box button { width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-detail { background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+        .btn-detail:hover { background: #2563eb; }
+        .empty { color: #a0aec0; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+        <h2>🔐 Accès administrateur</h2>
+        <p>Veuillez saisir le code d'accès :</p>
+        <input type="password" id="adminCode" placeholder="Code d'accès" onkeydown="if(event.key==='Enter') verifyCode()">
+        <button onclick="verifyCode()">Se connecter</button>
+        <p id="loginError" style="color:#dc2626; margin-top:10px;"></p>
+    </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden">
+    <div class="container">
+
+        <!-- HEADER avec bouton Paramètres -->
+        <div class="header">
+            <h1>📊 Tableau de bord administrateur</h1>
+            <button class="btn-param" onclick="openParamModal()">⚙️ Paramètres</button>
+        </div>
+
+        <!-- STATISTIQUES (4 cartes cliquables) -->
+        <div class="card">
+            <div class="stats">
+                <div class="stat-item active" data-tab="chauffeurs" onclick="switchTab('chauffeurs')">
+                    <div class="number" id="nbChauffeurs">-</div>
+                    <div class="label">Chauffeurs inscrits</div>
+                </div>
+                <div class="stat-item" data-tab="actifs" onclick="switchTab('actifs')">
+                    <div class="number" id="nbActifs">-</div>
+                    <div class="label">Chauffeurs actifs</div>
+                </div>
+                <div class="stat-item" data-tab="paiements" onclick="switchTab('paiements')">
+                    <div class="number" id="nbPaiements">-</div>
+                    <div class="label">Paiements</div>
+                </div>
+                <div class="stat-item" data-tab="attente" onclick="switchTab('attente')">
+                    <div class="number" id="nbAttente">-</div>
+                    <div class="label">Clients en attente</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTENU DES ONGLETS -->
+        <div id="tabChauffeurs" class="tab-content active">
+            <div class="card">
+                <h2>👤 Liste des chauffeurs</h2>
+                <input type="text" id="searchChauffeur" placeholder="🔍 Rechercher..." style="width:100%; padding:8px; margin-bottom:15px; border:1px solid #ccc; border-radius:6px;">
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>ID</th><th>Identifiant</th><th>Téléphone</th><th>Statut</th><th>Annulations</th><th>Actions</th></tr></thead>
+                        <tbody id="tableChauffeurs"><tr><td colspan="6" class="empty">Chargement...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabActifs" class="tab-content">
+            <div class="card">
+                <h2>✅ Chauffeurs actifs</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>ID</th><th>Identifiant</th><th>Téléphone</th><th>Statut</th></tr></thead>
+                        <tbody id="tableActifs"><tr><td colspan="4" class="empty">Chargement...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabPaiements" class="tab-content">
+            <div class="card">
+                <h2>💳 Paiements</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>ID</th><th>Client</th><th>Trajet</th><th>Montant</th><th>Date</th><th>Statut</th></tr></thead>
+                        <tbody id="tablePaiements"><tr><td colspan="6" class="empty">Chargement...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tabAttente" class="tab-content">
+            <div class="card">
+                <h2>⏳ Clients en attente</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Départ → Arrivée</th><th>Date souhaitée</th><th>Places</th></tr></thead>
+                        <tbody id="tableAttente"><tr><td colspan="6" class="empty">Chargement...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARTE ET GRAPHIQUE (optionnels, en bas) -->
+        <div class="card">
+            <h2>🗺️ Trajets actifs</h2>
+            <div id="map"></div>
+        </div>
+        <div class="card">
+            <h3>📈 Trajets par jour</h3>
+            <canvas id="trajetsChart" height="150"></canvas>
+        </div>
+
+    </div>
+</div>
+
+<!-- MODALE PARAMÈTRES -->
+<div id="paramModal" class="modal">
+    <div class="modal-content">
+        <h2>⚙️ Paramètres du site</h2>
+        <label>Adresse</label>
+        <input type="text" id="paramAdresse" placeholder="Ex: Dakar, Sénégal">
+        <label>Numéro de téléphone</label>
+        <input type="text" id="paramTelephone" placeholder="Ex: +221 77 123 45 67">
+        <label>Logo de l'entreprise</label>
+        <input type="file" id="paramLogo" accept="image/*">
+        <div style="margin-top:10px;">
+            <button class="btn-save" onclick="saveParams()">💾 Enregistrer</button>
+            <button class="btn-cancel" onclick="closeParamModal()">Fermer</button>
+        </div>
+        <div id="paramMessage" style="margin-top:10px;"></div>
+    </div>
+</div>
+
+<script>
+    const ADMIN_TOKEN = 'admin_secret_token';
+    let map = null;
+    let chart = null;
+
+    // --- LOGIN ---
+    function verifyCode() {
+        const code = document.getElementById('adminCode').value;
+        if (code === 'admin123') {
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            initDashboard();
+        } else {
+            document.getElementById('loginError').textContent = 'Code incorrect. Réessayez.';
+        }
+    }
+
+    // --- API HELPER ---
+    async function fetchAdmin(url, options = {}) {
+        const res = await fetch(url, {
+            ...options,
+            headers: { 'Authorization': `Bearer ${ADMIN_TOKEN}`, ...options.headers }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+        return res.json();
+    }
+
+    // --- INIT ---
+    async function initDashboard() {
+        await loadStats();
+        await loadChauffeurs();
+        await loadActifs();
+        await loadPaiements();
+        await loadAttente();
+        initMap();
+        loadTrajetsForMap();
+        loadChart();
+        loadParams();
+    }
+
+    // --- STATS ---
+    async function loadStats() {
+        try {
+            const stats = await fetchAdmin('/api/admin/stats');
+            document.getElementById('nbChauffeurs').innerText = stats.chauffeurs || 0;
+            document.getElementById('nbActifs').innerText = stats.actifs || 0;
+            document.getElementById('nbPaiements').innerText = stats.paiements || 0;
+            // Pour clients en attente, on utilise /api/attente
+            const attente = await fetchAdmin('/api/attente');
+            document.getElementById('nbAttente').innerText = attente.length || 0;
+        } catch (err) {
+            console.error('Erreur stats:', err);
+        }
+    }
+
+    // --- ONGLETS ---
+    function switchTab(tab) {
+        document.querySelectorAll('.stat-item').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.stat-item[data-tab="${tab}"]`).classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    }
+
+    // --- CHAUFFEURS (tous) ---
+    async function loadChauffeurs() {
+        try {
+            const data = await fetchAdmin('/api/admin/chauffeurs');
+            const tbody = document.getElementById('tableChauffeurs');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucun chauffeur.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(c => `
+                <tr>
+                    <td>${c.id}</td>
+                    <td>${c.identifiant || '-'}</td>
+                    <td>${c.telephone || '-'}</td>
+                    <td><span class="badge ${c.bloque_until ? 'badge-inactive' : 'badge-active'}">${c.bloque_until ? 'Suspendu' : 'Actif'}</span></td>
+                    <td>${c.annulations_consecutives || 0}</td>
+                    <td>
+                        <button class="btn-detail" onclick="alert('Détails chauffeur ${c.id}')">📄 Voir</button>
+                        ${c.bloque_until ? `<button class="btn-detail" style="background:#48bb78;" onclick="activerChauffeur(${c.id})">Activer</button>` : `<button class="btn-detail" style="background:#ed8936;" onclick="suspendreChauffeur(${c.id})">Suspendre</button>`}
+                        <button class="btn-detail" style="background:#ef4444;" onclick="supprimerChauffeur(${c.id})">Supprimer</button>
+                    </td>
+                </tr>
+            `).join('');
+            // Filtre
+            document.getElementById('searchChauffeur').addEventListener('input', function() {
+                const q = this.value.toLowerCase();
+                const rows = tbody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(q) ? '' : 'none';
+                });
+            });
+        } catch (err) {
+            console.error('Erreur chauffeurs:', err);
+        }
+    }
+
+    // --- ACTIFS ---
+    async function loadActifs() {
+        try {
+            const data = await fetchAdmin('/api/admin/chauffeurs');
+            const actifs = data.filter(c => !c.bloque_until);
+            const tbody = document.getElementById('tableActifs');
+            if (!actifs || actifs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty">Aucun chauffeur actif.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = actifs.map(c => `
+                <tr>
+                    <td>${c.id}</td>
+                    <td>${c.identifiant || '-'}</td>
+                    <td>${c.telephone || '-'}</td>
+                    <td><span class="badge badge-active">Actif</span></td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('Erreur actifs:', err);
+        }
+    }
+
+    // --- PAIEMENTS ---
+    async function loadPaiements() {
+        try {
+            const data = await fetchAdmin('/api/admin/paiements');
+            const tbody = document.getElementById('tablePaiements');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucun paiement.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(p => `
+                <tr>
+                    <td>${p.id}</td>
+                    <td>${p.client_nom || '-'}</td>
+                    <td>${p.trajet_depart || ''} → ${p.trajet_arrivee || ''}</td>
+                    <td>${p.montant_total || 0} FCFA</td>
+                    <td>${p.date_creation ? new Date(p.date_creation).toLocaleString() : '-'}</td>
+                    <td><span class="badge badge-active">${p.statut || 'OK'}</span></td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('Erreur paiements:', err);
+        }
+    }
+
+    // --- ATTENTE ---
+    async function loadAttente() {
+        try {
+            const data = await fetchAdmin('/api/attente');
+            const tbody = document.getElementById('tableAttente');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">Aucune demande en attente.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(a => `
+                <tr>
+                    <td>${a.id}</td>
+                    <td>${a.nom || '-'}</td>
+                    <td>${a.telephone || '-'}</td>
+                    <td>${a.depart || '?'} → ${a.arrivee || '?'}</td>
+                    <td>${a.date_souhaitee || '-'}</td>
+                    <td>${a.nb_places || 1}</td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('Erreur attente:', err);
+        }
+    }
+
+    // --- ACTIONS CHAUFFEURS ---
+    async function suspendreChauffeur(id) {
+        if (!confirm('Suspendre ce chauffeur ?')) return;
+        try {
+            const now = new Date();
+            now.setDate(now.getDate() + 45);
+            await fetchAdmin('/api/admin/chauffeur/' + id + '/suspendre', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bloque_until: now.toISOString() })
+            });
+            alert('✅ Chauffeur suspendu.');
+            loadStats();
+            loadChauffeurs();
+            loadActifs();
+        } catch (err) { alert('Erreur : ' + err.message); }
+    }
+    async function activerChauffeur(id) {
+        if (!confirm('Réactiver ce chauffeur ?')) return;
+        try {
+            await fetchAdmin('/api/admin/chauffeur/' + id + '/activer', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bloque_until: null, annulations_consecutives: 0 })
+            });
+            alert('✅ Chauffeur réactivé.');
+            loadStats();
+            loadChauffeurs();
+            loadActifs();
+        } catch (err) { alert('Erreur : ' + err.message); }
+    }
+    async function supprimerChauffeur(id) {
+        if (!confirm('Supprimer définitivement ce chauffeur ?')) return;
+        try {
+            await fetchAdmin('/api/admin/chauffeur/' + id, { method: 'DELETE' });
+            alert('✅ Chauffeur supprimé.');
+            loadStats();
+            loadChauffeurs();
+            loadActifs();
+        } catch (err) { alert('Erreur : ' + err.message); }
+    }
+
+    // --- CARTE ---
+    function initMap() {
+        map = L.map('map').setView([14.7167, -17.4677], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '©️ OpenStreetMap' }).addTo(map);
+    }
+    async function loadTrajetsForMap() {
+        try {
+            const trajets = await fetchAdmin('/api/trajets');
+            if (!map) return;
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker || layer instanceof L.Polyline) map.removeLayer(layer);
+            });
+            const bounds = L.latLngBounds();
+            let hasBounds = false;
+            trajets.forEach(t => {
+                if (t.lat_depart && t.lng_depart) {
+                    L.marker([t.lat_depart, t.lng_depart]).addTo(map)
+                        .bindPopup(`<b>Départ:</b> ${t.depart}<br>📅 ${new Date(t.date_depart).toLocaleString()}`);
+                    bounds.extend([t.lat_depart, t.lng_depart]);
+                    hasBounds = true;
+                }
+                if (t.lat_arrivee && t.lng_arrivee) {
+                    L.marker([t.lat_arrivee, t.lng_arrivee]).addTo(map)
+                        .bindPopup(`<b>Arrivée:</b> ${t.arrivee}<br>📅 ${new Date(t.date_depart).toLocaleString()}`);
+                    bounds.extend([t.lat_arrivee, t.lng_arrivee]);
+                    hasBounds = true;
+                }
+                if (t.lat_depart && t.lng_depart && t.lat_arrivee && t.lng_arrivee) {
+                    L.polyline([[t.lat_depart, t.lng_depart], [t.lat_arrivee, t.lng_arrivee]], { color: '#3b82f6', weight: 2 }).addTo(map);
+                }
+            });
+            if (hasBounds) map.fitBounds(bounds, { padding: [50, 50] });
+            else map.setView([14.7167, -17.4677], 13);
+        } catch (err) {
+            console.error('Erreur carte:', err);
+        }
+    }
+
+    // --- GRAPHIQUE ---
+    async function loadChart() {
+        try {
+            const data = await fetchAdmin('/api/admin/trajets-par-jour');
+            const ctx = document.getElementById('trajetsChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels || [],
+                    datasets: [{
+                        label: 'Trajets créés',
+                        data: data.values || [],
+                        backgroundColor: '#3b82f6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        } catch (err) {
+            console.error('Erreur graphique:', err);
+        }
+    }
+
+    // --- PARAMÈTRES (localStorage) ---
+    function loadParams() {
+        const adresse = localStorage.getItem('siteAdresse') || '';
+        const telephone = localStorage.getItem('siteTelephone') || '';
+        document.getElementById('paramAdresse').value = adresse;
+        document.getElementById('paramTelephone').value = telephone;
+    }
+    function openParamModal() {
+        loadParams();
+        document.getElementById('paramModal').style.display = 'flex';
+        document.getElementById('paramMessage').textContent = '';
+    }
+    function closeParamModal() {
+        document.getElementById('paramModal').style.display = 'none';
+    }
+    function saveParams() {
+        const adresse = document.getElementById('paramAdresse').value.trim();
+        const telephone = document.getElementById('paramTelephone').value.trim();
+        const logoInput = document.getElementById('paramLogo');
+        localStorage.setItem('siteAdresse', adresse);
+        localStorage.setItem('siteTelephone', telephone);
+        if (logoInput.files.length > 0) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                localStorage.setItem('siteLogo', e.target.result);
+                document.getElementById('paramMessage').innerHTML = '<span style="color:green;">✅ Paramètres enregistrés (logo inclus).</span>';
+                setTimeout(closeParamModal, 1200);
+            };
+            reader.readAsDataURL(logoInput.files[0]);
+        } else {
+            document.getElementById('paramMessage').innerHTML = '<span style="color:green;">✅ Paramètres enregistrés.</span>';
+            setTimeout(closeParamModal, 1200);
+        }
+    }
+</script>
+</body>
+</html>
