@@ -88,20 +88,6 @@ app.delete('/api/attente/:id', async (req, res) => {
   }
 });
 
-// Nettoyage automatique des annonces expirées (toutes les minutes)
-setInterval(async () => {
-  const now = new Date().toISOString();
-  try {
-    const result = await pool.query(
-      "DELETE FROM attente WHERE date_souhaitee || ' ' || heure_debut < $1",
-      [now]
-    );
-    if (result.rowCount > 0) console.log(`🗑️ ${result.rowCount} annonces expirées supprimées`);
-  } catch (err) {
-    console.error('Erreur nettoyage:', err.message);
-  }
-}, 60000);
-
 // ============================================================
 // ROUTES TRAJETS
 // ============================================================
